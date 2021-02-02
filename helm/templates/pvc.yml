@@ -1,0 +1,122 @@
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ printf "%s-logs-pvc" $.Release.Name  }}
+  labels: {{- include "bitwarden.labels" $ | nindent 4 }}
+  namespace: {{ $.Release.Namespace | quote }}
+  annotations:
+    pv.kubernetes.io/bins-completed: "yes"
+    pv.kubernetes.io/bound-by-controller: "yes"
+    volume.beta.kubernetes.io/storage-class: {{ $.Values.persistence.storageClass | default "" | quote }}
+  finalizers:
+    {{- range $.Values.persistence.finalizers }}
+    {{ print "- " (. | quote) | indent 4 }}
+    {{- end }}
+spec:
+  accessModes:
+    {{- range .Values.persistence.pvc.logs.accessModes }}
+    {{ print "- " (. | quote) | indent 4 }}
+    {{- end }}
+  storageClassName: {{ .Values.persistence.storageClass | default "" | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.pvc.logs.size | quote }}
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ printf "%s-core-pvc" $.Release.Name }}
+  labels: {{- include "bitwarden.labels" $ | nindent 4 }}
+  namespace: {{ $.Release.Namespace | quote }}
+  annotations:
+    pv.kubernetes.io/bins-completed: "yes"
+    pv.kubernetes.io/bound-by-controller: "yes"
+    volume.beta.kubernetes.io/storage-class: {{ $.Values.persistence.storageClass | default "" | quote }}
+  finalizers:
+    {{- range $.Values.persistence.finalizers }}
+    {{ print "- " (. | quote) | indent 4 }}
+    {{- end }}
+spec:
+  accessModes:
+    {{- range .Values.persistence.pvc.core.accessModes }}
+    {{ print "- " (. | quote) | indent 4 }}
+    {{- end }}
+  storageClassName: {{ .Values.persistence.storageClass | default "" | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.pvc.core.size | quote }}
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ printf "%s-identity-pvc" $.Release.Name }}
+  labels: {{- include "bitwarden.labels" $ | nindent 4 }}
+  namespace: {{ $.Release.Namespace | quote }}
+  annotations:
+    pv.kubernetes.io/bins-completed: "yes"
+    pv.kubernetes.io/bound-by-controller: "yes"
+    volume.beta.kubernetes.io/storage-class: {{ $.Values.persistence.storageClass | default "" | quote }}
+  finalizers:
+    {{- range $.Values.persistence.finalizers }}
+    {{ print "- " (. | quote) | indent 4 }}
+    {{- end }}
+spec:
+  accessModes:
+    {{- range .Values.persistence.pvc.identity.accessModes }}
+    {{ print "- " (. | quote) | indent 4 }}
+    {{- end }}
+  storageClassName: {{ .Values.persistence.storageClass | default "" | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.pvc.identity.size | quote }}
+---
+{{ if .Values.db.buildIn }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ printf "%s-db-pvc" $.Release.Name }}
+  labels: {{- include "bitwarden.labels" $ | nindent 4 }}
+  namespace: {{ $.Release.Namespace | quote }}
+  annotations:
+    pv.kubernetes.io/bins-completed: "yes"
+    pv.kubernetes.io/bound-by-controller: "yes"
+    volume.beta.kubernetes.io/storage-class: {{ $.Values.persistence.storageClass | default "" | quote }}
+  finalizers:
+    {{- range $.Values.persistence.finalizers }}
+    {{ print "- " (. | quote) | indent 4 }}
+    {{- end }}
+spec:
+  accessModes:
+    {{- range .Values.persistence.pvc.db.accessModes }}
+    {{ print "- " (. | quote) | indent 4 }}
+    {{- end }}
+  storageClassName: {{ .Values.persistence.storageClass | default "" | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.pvc.db.size | quote }}
+{{ end }}
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ printf "%s-certificates-pvc" $.Release.Name }}
+  labels: {{- include "bitwarden.labels" $ | nindent 4 }}
+  namespace: {{ $.Release.Namespace | quote }}
+  annotations:
+    pv.kubernetes.io/bins-completed: "yes"
+    pv.kubernetes.io/bound-by-controller: "yes"
+    volume.beta.kubernetes.io/storage-class: {{ $.Values.persistence.storageClass | default "" | quote }}
+  finalizers:
+    {{- range $.Values.persistence.finalizers }}
+    {{ print "- " (. | quote) | indent 4 }}
+    {{- end }}
+spec:
+  accessModes:
+    {{- range .Values.persistence.pvc.certificates.accessModes }}
+    {{ print "- " (. | quote) | indent 4 }}
+    {{- end }}
+  storageClassName: {{ .Values.persistence.storageClass | default "" | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.pvc.certificates.size | quote }}

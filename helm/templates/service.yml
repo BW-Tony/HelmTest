@@ -1,0 +1,192 @@
+{{ if .Values.db.buildIn }}
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ .Release.Namespace }}
+  name: {{ .Release.Name }}-db-service
+  labels:
+    app: {{ .Release.Name }}-db
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .Release.Name }}-db
+  ports:
+    - name: db
+      protocol: TCP
+      port: 1433
+      targetPort: db
+    - name: admin
+      protocol: TCP
+      port: 1434
+      targetPort: admin
+---
+{{ end }}
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ .Release.Namespace }}
+  name: {{ .Release.Name }}-web-service
+  labels:
+    app: {{ .Release.Name }}-web
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .Release.Name }}-web
+  ports:
+    - name: web
+      protocol: TCP
+      port: 80
+      targetPort: web
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ .Release.Namespace }}
+  name: {{ .Release.Name }}-notifications-service
+  labels:
+    app: {{ .Release.Name }}-notifications
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .Release.Name }}-notifications
+  ports:
+    - name: notifications
+      protocol: TCP
+      port: 80
+      targetPort: notifications
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ .Release.Namespace }}
+  name: {{ .Release.Name }}-admin-service
+  labels:
+    app: {{ .Release.Name }}-admin
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .Release.Name }}-admin
+  ports:
+    - name: admin
+      protocol: TCP
+      port: 80
+      targetPort: admin
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ .Release.Namespace }}
+  name: {{ .Release.Name }}-events-service
+  labels:
+    app: {{ .Release.Name }}-events
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .Release.Name }}-events
+  ports:
+    - name: events
+      protocol: TCP
+      port: 80
+      targetPort: events
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ .Release.Namespace }}
+  name: {{ .Release.Name }}-icons-service
+  labels:
+    app: {{ .Release.Name }}-icons
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .Release.Name }}-icons
+  ports:
+    - name: icons
+      protocol: TCP
+      port: 80
+      targetPort: icons
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ .Release.Namespace }}
+  name: {{ .Release.Name }}-api-service
+  labels:
+    app: {{ .Release.Name }}-api
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .Release.Name }}-api
+  ports:
+    - name: api
+      protocol: TCP
+      port: 80
+      targetPort: api
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ .Release.Namespace }}
+  name: {{ .Release.Name }}-attachments-service
+  labels:
+    app: {{ .Release.Name }}-attachments
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .Release.Name }}-attachments
+  ports:
+    - name: attachments
+      protocol: TCP
+      port: 80
+      targetPort: attachments
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ .Release.Namespace }}
+  name: {{ .Release.Name }}-identity-service
+  labels:
+    app: {{ .Release.Name }}-identity
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .Release.Name }}-identity
+  ports:
+    - name: identity
+      protocol: TCP
+      port: 80
+      targetPort: identity
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ .Release.Namespace }}
+  name: {{ .Release.Name }}-sso-service
+  labels:
+    app: {{ .Release.Name }}-sso
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .Release.Name }}-sso
+  ports:
+    - name: sso
+      protocol: TCP
+      port: 80
+      targetPort: sso
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ .Release.Namespace }}
+  name: {{ .Release.Name }}-portal-service
+  labels:
+    app: {{ .Release.Name }}-portal
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .Release.Name }}-portal
+  ports:
+    - name: portal
+      protocol: TCP
+      port: 80
+      targetPort: portal

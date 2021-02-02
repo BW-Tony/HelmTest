@@ -1,0 +1,1988 @@
+---
+{{ if .Values.db.buildIn }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-db-deployment
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}-db-deployment
+spec:
+  replicas: {{ .Values.web.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-db
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-db
+    spec:
+      restartPolicy: {{ .Values.db.restartPolicy }}
+      volumes:
+        - name: logs
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-logs-pvc
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-db-pvc
+      containers:
+        - name: {{ .Release.Name }}-db
+          image: {{ .Values.db.image }}
+          volumeMounts:
+            - mountPath: /var/opt/mssql/data
+              name: data
+            - mountPath: /var/opt/mssql/log
+              name: logs
+              subPath: database
+            - mountPath: /etc/bitwarden/mssql/backups
+              name: data
+              subPath: backups
+          imagePullPolicy: {{ .Values.db.imagePullPolicy }}
+          {{- if .Values.checks.livenessProbe.enabled }}
+          livenessProbe:
+            exec:
+              command:
+              - bash
+              - -c 
+              - |
+                /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P $SA_PASSWORD -Q 'SELECT 1'
+            initialDelaySeconds: {{ .Values.checks.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.checks.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.checks.livenessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.checks.livenessProbe.successThreshold }}
+            failureThreshold: {{ .Values.checks.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.checks.readinessProbe.enabled }}
+          readinessProbe:
+            exec:
+              command:
+              - bash
+              - -c 
+              - |
+                /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P $SA_PASSWORD -Q 'SELECT 1'
+            initialDelaySeconds: {{ .Values.checks.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.checks.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.checks.readinessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.checks.readinessProbe.successThreshold }}
+            failureThreshold: {{ .Values.checks.readinessProbe.failureThreshold }}
+          {{- end }}
+          env:
+            - name: ACCEPT_EULA
+              value: "Y"
+            - name: MSSQL_PID
+              value: "Express"
+            - name: SA_PASSWORD
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: sa_password
+          ports:
+            - name: db
+              containerPort: 1433
+              protocol: TCP
+            - name: admin
+              containerPort: 1434
+              protocol: TCP
+{{ end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-web-deployment
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}-web-deployment
+spec:
+  replicas: {{ .Values.web.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-web
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-web
+    spec:
+      restartPolicy: {{ .Values.web.restartPolicy }}
+      volumes:
+        - name: app-id
+          configMap:
+            name: {{ .Release.Name }}-config
+            items:
+              - key: app-id.json
+                path: app-id.json
+      containers:
+        - name: {{ .Release.Name }}-web
+          image: {{ .Values.web.image }}
+          volumeMounts:
+            - mountPath: /etc/bitwarden/web/
+              name: app-id
+          imagePullPolicy: {{ .Values.web.imagePullPolicy }}
+          {{- if .Values.checks.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 5000
+              scheme: HTTP
+              {{- if .Values.checks.livenessProbeHeaders }}
+              httpHeaders: {{- toYaml .Values.checks.livenessProbeHeaders | nindent 16 }}
+              {{- end }}
+            initialDelaySeconds: {{ .Values.checks.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.checks.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.checks.livenessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.checks.livenessProbe.successThreshold }}
+            failureThreshold: {{ .Values.checks.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.checks.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 5000
+              scheme: HTTP
+              {{- if .Values.checks.livenessProbeHeaders }}
+              httpHeaders: {{- toYaml .Values.checks.livenessProbeHeaders | nindent 16 }}
+              {{- end }}
+            initialDelaySeconds: {{ .Values.checks.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.checks.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.checks.readinessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.checks.readinessProbe.successThreshold }}
+            failureThreshold: {{ .Values.checks.readinessProbe.failureThreshold }}
+          {{- end }}
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: {{ .Values.global.environment }}
+            - name: globalSettings__selfHosted
+              value: "true"
+            - name: globalSettings__baseServiceUri__vault
+              value: "https://{{ .Values.global.domain }}"
+            - name: globalSettings__baseServiceUri__api
+              value: "https://{{ .Values.global.domain }}/api"
+            - name: globalSettings__baseServiceUri__identity
+              value: "https://{{ .Values.global.domain }}/identity"
+            - name: globalSettings__baseServiceUri__admin
+              value: "https://{{ .Values.global.domain }}/admin"
+            - name: globalSettings__baseServiceUri__notifications
+              value: "https://{{ .Values.global.domain }}/notifications"
+            - name: globalSettings__baseServiceUri__sso
+              value: https://{{ .Values.global.domain }}/sso
+            - name: globalSettings__baseServiceUri__portal
+              value: https://{{ .Values.global.domain }}/portal
+            - name: globalSettings__baseServiceUri__internalNotifications
+              value: http://bitwarden-notifications-service
+            - name: globalSettings__baseServiceUri__internalAdmin
+              value: http://bitwarden-admin-service
+            - name: globalSettings__baseServiceUri__internalIdentity
+              value: http://bitwarden-identity-service
+            - name: globalSettings__baseServiceUri__internalApi
+              value: http://bitwarden-api-service
+            - name: globalSettings__baseServiceUri__internalVault
+              value: http://bitwarden-web-service
+            - name: globalSettings__baseServiceUri__internalSso
+              value: http://bitwarden-sso-service
+            - name: globalSettings__baseServiceUri__internalPortal
+              value: http://bitwarden-portal-service
+            - name: globalSettings__pushRelayBaseUri
+              value: https://push.bitwarden.com
+            - name: globalSettings__installation__identityUri
+              value: https://identity.bitwarden.com
+          ports:
+            - name: web
+              containerPort: 5000
+              protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ printf "%s-api-deployment" .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "bitwarden.labels" $ | nindent 4 }} 
+    app: {{ .Release.Name }}-api
+spec:
+  replicas: {{ .Values.services.api.replicas }}
+  selector:
+    matchLabels: {{- include "bitwarden.matchLabels" $ | nindent 6 }}
+      app: {{ .Release.Name }}-api
+  {{- if .Values.global.updateStrategy }}
+  strategy: {{ toYaml .Values.global.updateStrategy | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      labels: {{- include "bitwarden.labels" $ | nindent 8 }}
+        app: {{ .Release.Name }}-api
+      {{- if or .Values.services.api.podAnnotations .Values.metrics.enabled }}
+      annotations: {}
+      {{- end }}
+    spec:
+      {{- if .Values.services.api.securityContext.enabled }}
+      securityContext:
+        runAsUser: {{ .Values.services.api.securityContext.runAsUser }}
+        fsGroup: {{ .Values.services.api.securityContext.fsGroup }}
+      {{- end }}
+      restartPolicy: {{ .Values.services.api.restartPolicy | quote }}
+      volumes:
+        - name: logs
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-logs-pvc
+        - name: core
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-core-pvc
+        - name: certificates
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-certificates-pvc
+      containers:
+        - name: {{ printf "%s-api" .Release.Name }}
+          image: {{ .Values.services.api.image }}
+          volumeMounts:
+            - mountPath: /etc/bitwarden/ca-certificates
+              name: certificates
+            - mountPath: /etc/bitwarden/logs
+              name: logs
+              subPath: api
+            - mountPath: /etc/bitwarden/core
+              name: core
+          imagePullPolicy: {{ .Values.services.api.imagePullPolicy }}
+          {{- if .Values.checks.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /alive
+              port: 5000
+              scheme: HTTP
+              {{- if .Values.checks.livenessProbeHeaders }}
+              httpHeaders: {{- toYaml .Values.checks.livenessProbeHeaders | nindent 16 }}
+              {{- end }}
+            initialDelaySeconds: {{ .Values.checks.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.checks.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.checks.livenessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.checks.livenessProbe.successThreshold }}
+            failureThreshold: {{ .Values.checks.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.checks.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /alive
+              port: 5000
+              scheme: HTTP
+              {{- if .Values.checks.livenessProbeHeaders }}
+              httpHeaders: {{- toYaml .Values.checks.livenessProbeHeaders | nindent 16 }}
+              {{- end }}
+            initialDelaySeconds: {{ .Values.checks.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.checks.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.checks.readinessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.checks.readinessProbe.successThreshold }}
+            failureThreshold: {{ .Values.checks.readinessProbe.failureThreshold }}
+          {{- end }}
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: {{ .Values.global.environment }}
+            - name: globalSettings__selfHosted
+              value: "true"
+            - name: globalSettings__baseServiceUri__vault
+              value: "https://{{ .Values.global.domain }}"
+            - name: globalSettings__baseServiceUri__api
+              value: "https://{{ .Values.global.domain }}/api"
+            - name: globalSettings__baseServiceUri__identity
+              value: "https://{{ .Values.global.domain }}/identity"
+            - name: globalSettings__baseServiceUri__admin
+              value: "https://{{ .Values.global.domain }}/admin"
+            - name: globalSettings__baseServiceUri__notifications
+              value: "https://{{ .Values.global.domain }}/notifications"
+            - name: globalSettings__baseServiceUri__sso
+              value: https://{{ .Values.global.domain }}/sso
+            - name: globalSettings__baseServiceUri__portal
+              value: https://{{ .Values.global.domain }}/portal
+            - name: globalSettings__baseServiceUri__internalNotifications
+              value: http://bitwarden-notifications-service
+            - name: globalSettings__baseServiceUri__internalAdmin
+              value: http://bitwarden-admin-service
+            - name: globalSettings__baseServiceUri__internalIdentity
+              value: http://bitwarden-identity-service
+            - name: globalSettings__baseServiceUri__internalApi
+              value: http://bitwarden-api-service
+            - name: globalSettings__baseServiceUri__internalVault
+              value: http://bitwarden-web-service
+            - name: globalSettings__baseServiceUri__internalSso
+              value: http://bitwarden-sso-service
+            - name: globalSettings__baseServiceUri__internalPortal
+              value: http://bitwarden-portal-service
+            - name: globalSettings__pushRelayBaseUri
+              value: https://push.bitwarden.com
+            - name: globalSettings__installation__identityUri
+              value: https://identity.bitwarden.com      
+            - name: globalSettings__sqlServer__connectionString
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: mssql_dsn
+            - name: globalSettings__identityServer__certificatePassword
+              valueFrom: 
+                secretKeyRef:
+                  name: bitwarden-secrets
+                  key: certificate_password
+            - name: globalSettings__attachment__baseDirectory
+              value: /etc/bitwarden/core/attachments
+            - name: globalSettings__attachment__baseUrl
+              value: "https://{{ .Values.global.domain }}/attachments"
+            - name: globalSettings__dataProtection__directory
+              value: /etc/bitwarden/core/aspnet-dataprotection
+            - name: globalSettings__logDirectory
+              value: /etc/bitwarden/logs
+            - name: globalSettings__licenseDirectory
+              value: /etc/bitwarden/core/licenses
+            - name: globalSettings__oidcIdentityClientKey
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: oidc_identity_client_key
+            - name: globalSettings__internalIdentityKey
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: internal_identity_key
+            - name: globalSettings__duo__aKey
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: duo_akey
+            - name: globalSettings__installation__id
+              valueFrom: 
+                configMapKeyRef: 
+                  name: {{ .Release.Name }}-config
+                  key: installationId
+            - name: globalSettings__installation__key
+              valueFrom: 
+                configMapKeyRef: 
+                  name: {{ .Release.Name }}-config
+                  key: installationKey
+            - name: globalSettings__yubico__clientId
+              value: {{ .Values.global.env.yubico.globalSettings__yubico__clientId | quote }}
+            - name: globalSettings__yubico__key
+              valueFrom: 
+                secretKeyRef: 
+                  name: {{ .Release.Name }}-secrets
+                  key: yubico_key
+            - name: globalSettings__mail__replyToEmail
+              value: {{ .Values.global.env.mail.globalSettings__mail__replyToEmail | quote }}
+            - name: globalSettings__mail__smtp__host
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__host | quote }}
+            - name: globalSettings__mail__smtp__port
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__port | quote }}
+            - name: globalSettings__mail__smtp__ssl
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__ssl | quote }}
+            - name: globalSettings__mail__smtp__username
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__username | quote }}
+            - name: globalSettings__mail__smtp__trustServer
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__trustServer | quote }}
+            - name: globalSettings__mail__smtp__password
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: smtp_passwd
+            - name: globalSettings__disableUserRegistration
+              value: {{ .Values.global.env.userRegistration.globalSettings__disableUserRegistration | quote }}
+            - name: globalSettings__hibpApiKey
+              value: {{ .Values.global.env.hibp.globalSettings__hibpApiKey | quote }}
+            - name: adminSettings__admins
+              value: {{ .Values.global.env.admin.adminSettings__admins | quote }}
+          ports:
+            - name: api
+              containerPort: 5000
+              protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ printf "%s-attachments-deployment" .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "bitwarden.labels" $ | nindent 4 }} 
+    app: {{ .Release.Name }}-attachments
+spec:
+  replicas: {{ .Values.services.attachments.replicas }}
+  selector:
+    matchLabels: {{- include "bitwarden.matchLabels" $ | nindent 6 }}
+      app: {{ .Release.Name }}-attachments
+  {{- if .Values.global.updateStrategy }}
+  strategy: {{ toYaml .Values.global.updateStrategy | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      labels: {{- include "bitwarden.labels" $ | nindent 8 }}
+        app: {{ .Release.Name }}-attachments
+      {{- if or .Values.services.attachments.podAnnotations .Values.metrics.enabled }}
+      annotations: {}
+      {{- end }}
+    spec:
+      {{- if .Values.services.attachments.securityContext.enabled }}
+      securityContext:
+        runAsUser: {{ .Values.services.attachments.securityContext.runAsUser }}
+        fsGroup: {{ .Values.services.attachments.securityContext.fsGroup }}
+      {{- end }}
+      restartPolicy: {{ .Values.services.attachments.restartPolicy | quote }}
+      volumes:
+        - name: logs
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-logs-pvc
+        - name: core
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-core-pvc
+      containers:
+        - name: {{ printf "%s-attachments" .Release.Name }}
+          image: {{ .Values.services.attachments.image }}
+          volumeMounts:
+            - mountPath: /etc/bitwarden/logs
+              name: logs
+              subPath: attachments
+            - mountPath: /etc/bitwarden/core/attachments
+              name: core
+              subPath: attachments
+          imagePullPolicy: {{ .Values.services.attachments.imagePullPolicy }}
+          {{- if .Values.checks.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /alive
+              port: 5000
+              scheme: HTTP
+              {{- if .Values.checks.livenessProbeHeaders }}
+              httpHeaders: {{- toYaml .Values.checks.livenessProbeHeaders | nindent 16 }}
+              {{- end }}
+            initialDelaySeconds: {{ .Values.checks.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.checks.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.checks.livenessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.checks.livenessProbe.successThreshold }}
+            failureThreshold: {{ .Values.checks.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.checks.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /alive
+              port: 5000
+              scheme: HTTP
+              {{- if .Values.checks.livenessProbeHeaders }}
+              httpHeaders: {{- toYaml .Values.checks.livenessProbeHeaders | nindent 16 }}
+              {{- end }}
+            initialDelaySeconds: {{ .Values.checks.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.checks.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.checks.readinessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.checks.readinessProbe.successThreshold }}
+            failureThreshold: {{ .Values.checks.readinessProbe.failureThreshold }}
+          {{- end }}
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: {{ .Values.global.environment }}
+            - name: globalSettings__selfHosted
+              value: "true"
+            - name: globalSettings__baseServiceUri__vault
+              value: "https://{{ .Values.global.domain }}"
+            - name: globalSettings__baseServiceUri__api
+              value: "https://{{ .Values.global.domain }}/api"
+            - name: globalSettings__baseServiceUri__identity
+              value: "https://{{ .Values.global.domain }}/identity"
+            - name: globalSettings__baseServiceUri__admin
+              value: "https://{{ .Values.global.domain }}/admin"
+            - name: globalSettings__baseServiceUri__notifications
+              value: "https://{{ .Values.global.domain }}/notifications"
+            - name: globalSettings__baseServiceUri__sso
+              value: https://{{ .Values.global.domain }}/sso
+            - name: globalSettings__baseServiceUri__portal
+              value: https://{{ .Values.global.domain }}/portal
+            - name: globalSettings__baseServiceUri__internalNotifications
+              value: http://bitwarden-notifications-service
+            - name: globalSettings__baseServiceUri__internalAdmin
+              value: http://bitwarden-admin-service
+            - name: globalSettings__baseServiceUri__internalIdentity
+              value: http://bitwarden-identity-service
+            - name: globalSettings__baseServiceUri__internalApi
+              value: http://bitwarden-api-service
+            - name: globalSettings__baseServiceUri__internalVault
+              value: http://bitwarden-web-service
+            - name: globalSettings__baseServiceUri__internalSso
+              value: http://bitwarden-sso-service
+            - name: globalSettings__baseServiceUri__internalPortal
+              value: http://bitwarden-portal-service
+            - name: globalSettings__pushRelayBaseUri
+              value: https://push.bitwarden.com
+            - name: globalSettings__installation__identityUri
+              value: https://identity.bitwarden.com      
+            - name: globalSettings__sqlServer__connectionString
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: mssql_dsn
+            - name: globalSettings__identityServer__certificatePassword
+              valueFrom: 
+                secretKeyRef:
+                  name: bitwarden-secrets
+                  key: certificate_password
+            - name: globalSettings__attachment__baseDirectory
+              value: /etc/bitwarden/core/attachments
+            - name: globalSettings__attachment__baseUrl
+              value: "https://{{ .Values.global.domain }}/attachments"
+            - name: globalSettings__dataProtection__directory
+              value: /etc/bitwarden/core/aspnet-dataprotection
+            - name: globalSettings__logDirectory
+              value: /etc/bitwarden/logs
+            - name: globalSettings__licenseDirectory
+              value: /etc/bitwarden/core/licenses
+            - name: globalSettings__oidcIdentityClientKey
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: oidc_identity_client_key
+            - name: globalSettings__internalIdentityKey
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: internal_identity_key
+            - name: globalSettings__duo__aKey
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: duo_akey
+            - name: globalSettings__installation__id
+              valueFrom: 
+                configMapKeyRef: 
+                  name: {{ .Release.Name }}-config
+                  key: installationId
+            - name: globalSettings__installation__key
+              valueFrom: 
+                configMapKeyRef: 
+                  name: {{ .Release.Name }}-config
+                  key: installationKey
+            - name: globalSettings__yubico__clientId
+              value: {{ .Values.global.env.yubico.globalSettings__yubico__clientId | quote }}
+            - name: globalSettings__yubico__key
+              valueFrom: 
+                secretKeyRef: 
+                  name: {{ .Release.Name }}-secrets
+                  key: yubico_key
+            - name: globalSettings__mail__replyToEmail
+              value: {{ .Values.global.env.mail.globalSettings__mail__replyToEmail | quote }}
+            - name: globalSettings__mail__smtp__host
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__host | quote }}
+            - name: globalSettings__mail__smtp__port
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__port | quote }}
+            - name: globalSettings__mail__smtp__ssl
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__ssl | quote }}
+            - name: globalSettings__mail__smtp__username
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__username | quote }}
+            - name: globalSettings__mail__smtp__trustServer
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__trustServer | quote }}
+            - name: globalSettings__mail__smtp__password
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: smtp_passwd
+            - name: globalSettings__disableUserRegistration
+              value: {{ .Values.global.env.userRegistration.globalSettings__disableUserRegistration | quote }}
+            - name: globalSettings__hibpApiKey
+              value: {{ .Values.global.env.hibp.globalSettings__hibpApiKey | quote }}
+            - name: adminSettings__admins
+              value: {{ .Values.global.env.admin.adminSettings__admins | quote }}
+          ports:
+            - name: attachments
+              containerPort: 5000
+              protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ printf "%s-identity-deployment" .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "bitwarden.labels" $ | nindent 4 }} 
+    app: {{ .Release.Name }}-identity
+spec:
+  replicas: {{ .Values.services.identity.replicas }}
+  selector:
+    matchLabels: {{- include "bitwarden.matchLabels" $ | nindent 6 }}
+      app: {{ .Release.Name }}-identity
+  {{- if .Values.global.updateStrategy }}
+  strategy: {{ toYaml .Values.global.updateStrategy | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      labels: {{- include "bitwarden.labels" $ | nindent 8 }}
+        app: {{ .Release.Name }}-identity
+      {{- if or .Values.services.identity.podAnnotations .Values.metrics.enabled }}
+      annotations: {}
+      {{- end }}
+    spec:
+      {{- if .Values.services.identity.securityContext.enabled }}
+      securityContext:
+        runAsUser: {{ .Values.services.identity.securityContext.runAsUser }}
+        fsGroup: {{ .Values.services.identity.securityContext.fsGroup }}
+      {{- end }}
+      restartPolicy: {{ .Values.services.identity.restartPolicy | quote }}
+      volumes:
+        - name: logs
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-logs-pvc
+        - name: core
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-core-pvc
+        - name: identity
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-identity-pvc
+        - name: certificates
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-certificates-pvc
+      initContainers:
+        - name: {{ .Release.Name }}-identity-init
+          image: nginx:latest
+          volumeMounts:
+            - mountPath: /identity
+              name: identity
+            - mountPath: /ca-certificates
+              name: certificates
+          imagePullPolicy: {{ .Values.services.identity.imagePullPolicy }}
+          env:
+            - name: globalSettings__identityServer__certificatePassword
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: certificate_password
+          command:
+            - sh
+            - "-c"
+            - |
+              /bin/bash <<EOF
+              openssl req -x509 -newkey rsa:4096 -sha256 -nodes -keyout identity.key -out identity.crt -subj '/CN=Bitwarden IdentityServer' -days 10950
+              openssl pkcs12 -export -out /identity/identity.pfx -inkey identity.key -in identity.crt -certfile identity.crt -passout pass:${globalSettings__identityServer__certificatePassword}
+              EOF
+      containers:
+        - name: {{ printf "%s-identity" .Release.Name }}
+          image: {{ .Values.services.identity.image }}
+          volumeMounts:
+            - mountPath: /etc/bitwarden/ca-certificates
+              name: certificates
+            - mountPath: /etc/bitwarden/logs
+              name: logs
+              subPath: identity
+            - mountPath: /etc/bitwarden/identity
+              name: identity
+            - mountPath: /etc/bitwarden/core
+              name: core
+          imagePullPolicy: {{ .Values.services.identity.imagePullPolicy }}
+          {{- if .Values.checks.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /.well-known/openid-configuration
+              port: 5000
+              scheme: HTTP
+              {{- if .Values.checks.livenessProbeHeaders }}
+              httpHeaders: {{- toYaml .Values.checks.livenessProbeHeaders | nindent 16 }}
+              {{- end }}
+            initialDelaySeconds: {{ .Values.checks.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.checks.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.checks.livenessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.checks.livenessProbe.successThreshold }}
+            failureThreshold: {{ .Values.checks.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.checks.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /.well-known/openid-configuration
+              port: 5000
+              scheme: HTTP
+              {{- if .Values.checks.livenessProbeHeaders }}
+              httpHeaders: {{- toYaml .Values.checks.livenessProbeHeaders | nindent 16 }}
+              {{- end }}
+            initialDelaySeconds: {{ .Values.checks.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.checks.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.checks.readinessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.checks.readinessProbe.successThreshold }}
+            failureThreshold: {{ .Values.checks.readinessProbe.failureThreshold }}
+          {{- end }}
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: {{ .Values.global.environment }}
+            - name: globalSettings__selfHosted
+              value: "true"
+            - name: globalSettings__baseServiceUri__vault
+              value: "https://{{ .Values.global.domain }}"
+            - name: globalSettings__baseServiceUri__api
+              value: "https://{{ .Values.global.domain }}/api"
+            - name: globalSettings__baseServiceUri__identity
+              value: "https://{{ .Values.global.domain }}/identity"
+            - name: globalSettings__baseServiceUri__admin
+              value: "https://{{ .Values.global.domain }}/admin"
+            - name: globalSettings__baseServiceUri__notifications
+              value: "https://{{ .Values.global.domain }}/notifications"
+            - name: globalSettings__baseServiceUri__sso
+              value: https://{{ .Values.global.domain }}/sso
+            - name: globalSettings__baseServiceUri__portal
+              value: https://{{ .Values.global.domain }}/portal
+            - name: globalSettings__baseServiceUri__internalNotifications
+              value: http://bitwarden-notifications-service
+            - name: globalSettings__baseServiceUri__internalAdmin
+              value: http://bitwarden-admin-service
+            - name: globalSettings__baseServiceUri__internalIdentity
+              value: http://bitwarden-identity-service
+            - name: globalSettings__baseServiceUri__internalApi
+              value: http://bitwarden-api-service
+            - name: globalSettings__baseServiceUri__internalVault
+              value: http://bitwarden-web-service
+            - name: globalSettings__baseServiceUri__internalSso
+              value: http://bitwarden-sso-service
+            - name: globalSettings__baseServiceUri__internalPortal
+              value: http://bitwarden-portal-service
+            - name: globalSettings__pushRelayBaseUri
+              value: https://push.bitwarden.com
+            - name: globalSettings__installation__identityUri
+              value: https://identity.bitwarden.com      
+            - name: globalSettings__sqlServer__connectionString
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: mssql_dsn
+            - name: globalSettings__identityServer__certificatePassword
+              valueFrom: 
+                secretKeyRef:
+                  name: bitwarden-secrets
+                  key: certificate_password
+            - name: globalSettings__attachment__baseDirectory
+              value: /etc/bitwarden/core/attachments
+            - name: globalSettings__attachment__baseUrl
+              value: "https://{{ .Values.global.domain }}/attachments"
+            - name: globalSettings__dataProtection__directory
+              value: /etc/bitwarden/core/aspnet-dataprotection
+            - name: globalSettings__logDirectory
+              value: /etc/bitwarden/logs
+            - name: globalSettings__licenseDirectory
+              value: /etc/bitwarden/core/licenses
+            - name: globalSettings__oidcIdentityClientKey
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: oidc_identity_client_key
+            - name: globalSettings__internalIdentityKey
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: internal_identity_key
+            - name: globalSettings__duo__aKey
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: duo_akey
+            - name: globalSettings__installation__id
+              valueFrom: 
+                configMapKeyRef: 
+                  name: {{ .Release.Name }}-config
+                  key: installationId
+            - name: globalSettings__installation__key
+              valueFrom: 
+                configMapKeyRef: 
+                  name: {{ .Release.Name }}-config
+                  key: installationKey
+            - name: globalSettings__yubico__clientId
+              value: {{ .Values.global.env.yubico.globalSettings__yubico__clientId | quote }}
+            - name: globalSettings__yubico__key
+              valueFrom: 
+                secretKeyRef: 
+                  name: {{ .Release.Name }}-secrets
+                  key: yubico_key
+            - name: globalSettings__mail__replyToEmail
+              value: {{ .Values.global.env.mail.globalSettings__mail__replyToEmail | quote }}
+            - name: globalSettings__mail__smtp__host
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__host | quote }}
+            - name: globalSettings__mail__smtp__port
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__port | quote }}
+            - name: globalSettings__mail__smtp__ssl
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__ssl | quote }}
+            - name: globalSettings__mail__smtp__username
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__username | quote }}
+            - name: globalSettings__mail__smtp__trustServer
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__trustServer | quote }}
+            - name: globalSettings__mail__smtp__password
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: smtp_passwd
+            - name: globalSettings__disableUserRegistration
+              value: {{ .Values.global.env.userRegistration.globalSettings__disableUserRegistration | quote }}
+            - name: globalSettings__hibpApiKey
+              value: {{ .Values.global.env.hibp.globalSettings__hibpApiKey | quote }}
+            - name: adminSettings__admins
+              value: {{ .Values.global.env.admin.adminSettings__admins | quote }}
+          ports:
+            - name: identity
+              containerPort: 5000
+              protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ printf "%s-admin-deployment" .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "bitwarden.labels" $ | nindent 4 }} 
+    app: {{ .Release.Name }}-admin
+spec:
+  replicas: {{ .Values.services.admin.replicas }}
+  selector:
+    matchLabels: {{- include "bitwarden.matchLabels" $ | nindent 6 }}
+      app: {{ .Release.Name }}-admin
+  {{- if .Values.global.updateStrategy }}
+  strategy: {{ toYaml .Values.global.updateStrategy | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      labels: {{- include "bitwarden.labels" $ | nindent 8 }}
+        app: {{ .Release.Name }}-admin
+      {{- if or .Values.services.admin.podAnnotations .Values.metrics.enabled }}
+      annotations: {}
+      {{- end }}
+    spec:
+      {{- if .Values.services.admin.securityContext.enabled }}
+      securityContext:
+        runAsUser: {{ .Values.services.admin.securityContext.runAsUser }}
+        fsGroup: {{ .Values.services.admin.securityContext.fsGroup }}
+      {{- end }}
+      restartPolicy: {{ .Values.services.admin.restartPolicy | quote }}
+      volumes:
+        - name: logs
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-logs-pvc
+        - name: core
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-core-pvc
+        - name: certificates
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-certificates-pvc
+      containers:
+        - name: {{ printf "%s-admin" .Release.Name }}
+          image: {{ .Values.services.admin.image }}
+          volumeMounts:
+            - mountPath: /etc/bitwarden/ca-certificates
+              name: certificates
+            - mountPath: /etc/bitwarden/logs
+              name: logs
+              subPath: admin
+            - mountPath: /etc/bitwarden/core
+              name: core
+          imagePullPolicy: {{ .Values.services.admin.imagePullPolicy }}
+          {{- if .Values.checks.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 5000
+              scheme: HTTP
+              {{- if .Values.checks.livenessProbeHeaders }}
+              httpHeaders: {{- toYaml .Values.checks.livenessProbeHeaders | nindent 16 }}
+              {{- end }}
+            initialDelaySeconds: {{ .Values.checks.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.checks.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.checks.livenessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.checks.livenessProbe.successThreshold }}
+            failureThreshold: {{ .Values.checks.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.checks.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 5000
+              scheme: HTTP
+              {{- if .Values.checks.livenessProbeHeaders }}
+              httpHeaders: {{- toYaml .Values.checks.livenessProbeHeaders | nindent 16 }}
+              {{- end }}
+            initialDelaySeconds: {{ .Values.checks.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.checks.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.checks.readinessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.checks.readinessProbe.successThreshold }}
+            failureThreshold: {{ .Values.checks.readinessProbe.failureThreshold }}
+          {{- end }}
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: {{ .Values.global.environment }}
+            - name: globalSettings__selfHosted
+              value: "true"
+            - name: globalSettings__baseServiceUri__vault
+              value: "https://{{ .Values.global.domain }}"
+            - name: globalSettings__baseServiceUri__api
+              value: "https://{{ .Values.global.domain }}/api"
+            - name: globalSettings__baseServiceUri__identity
+              value: "https://{{ .Values.global.domain }}/identity"
+            - name: globalSettings__baseServiceUri__admin
+              value: "https://{{ .Values.global.domain }}/admin"
+            - name: globalSettings__baseServiceUri__notifications
+              value: "https://{{ .Values.global.domain }}/notifications"
+            - name: globalSettings__baseServiceUri__sso
+              value: https://{{ .Values.global.domain }}/sso
+            - name: globalSettings__baseServiceUri__portal
+              value: https://{{ .Values.global.domain }}/portal
+            - name: globalSettings__baseServiceUri__internalNotifications
+              value: http://bitwarden-notifications-service
+            - name: globalSettings__baseServiceUri__internalAdmin
+              value: http://bitwarden-admin-service
+            - name: globalSettings__baseServiceUri__internalIdentity
+              value: http://bitwarden-identity-service
+            - name: globalSettings__baseServiceUri__internalApi
+              value: http://bitwarden-api-service
+            - name: globalSettings__baseServiceUri__internalVault
+              value: http://bitwarden-web-service
+            - name: globalSettings__baseServiceUri__internalSso
+              value: http://bitwarden-sso-service
+            - name: globalSettings__baseServiceUri__internalPortal
+              value: http://bitwarden-portal-service
+            - name: globalSettings__pushRelayBaseUri
+              value: https://push.bitwarden.com
+            - name: globalSettings__installation__identityUri
+              value: https://identity.bitwarden.com      
+            - name: globalSettings__sqlServer__connectionString
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: mssql_dsn
+            - name: globalSettings__identityServer__certificatePassword
+              valueFrom: 
+                secretKeyRef:
+                  name: bitwarden-secrets
+                  key: certificate_password
+            - name: globalSettings__attachment__baseDirectory
+              value: /etc/bitwarden/core/attachments
+            - name: globalSettings__attachment__baseUrl
+              value: "https://{{ .Values.global.domain }}/attachments"
+            - name: globalSettings__dataProtection__directory
+              value: /etc/bitwarden/core/aspnet-dataprotection
+            - name: globalSettings__logDirectory
+              value: /etc/bitwarden/logs
+            - name: globalSettings__licenseDirectory
+              value: /etc/bitwarden/core/licenses
+            - name: globalSettings__oidcIdentityClientKey
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: oidc_identity_client_key
+            - name: globalSettings__internalIdentityKey
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: internal_identity_key
+            - name: globalSettings__duo__aKey
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: duo_akey
+            - name: globalSettings__installation__id
+              valueFrom: 
+                configMapKeyRef: 
+                  name: {{ .Release.Name }}-config
+                  key: installationId
+            - name: globalSettings__installation__key
+              valueFrom: 
+                configMapKeyRef: 
+                  name: {{ .Release.Name }}-config
+                  key: installationKey
+            - name: globalSettings__yubico__clientId
+              value: {{ .Values.global.env.yubico.globalSettings__yubico__clientId | quote }}
+            - name: globalSettings__yubico__key
+              valueFrom: 
+                secretKeyRef: 
+                  name: {{ .Release.Name }}-secrets
+                  key: yubico_key
+            - name: globalSettings__mail__replyToEmail
+              value: {{ .Values.global.env.mail.globalSettings__mail__replyToEmail | quote }}
+            - name: globalSettings__mail__smtp__host
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__host | quote }}
+            - name: globalSettings__mail__smtp__port
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__port | quote }}
+            - name: globalSettings__mail__smtp__ssl
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__ssl | quote }}
+            - name: globalSettings__mail__smtp__username
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__username | quote }}
+            - name: globalSettings__mail__smtp__trustServer
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__trustServer | quote }}
+            - name: globalSettings__mail__smtp__password
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: smtp_passwd
+            - name: globalSettings__disableUserRegistration
+              value: {{ .Values.global.env.userRegistration.globalSettings__disableUserRegistration | quote }}
+            - name: globalSettings__hibpApiKey
+              value: {{ .Values.global.env.hibp.globalSettings__hibpApiKey | quote }}
+            - name: adminSettings__admins
+              value: {{ .Values.global.env.admin.adminSettings__admins | quote }}
+          ports:
+            - name: admin
+              containerPort: 5000
+              protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ printf "%s-icons-deployment" .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "bitwarden.labels" $ | nindent 4 }}
+    app: {{ .Release.Name }}-icons
+spec:
+  replicas: {{ .Values.services.icons.replicas }}
+  selector:
+    matchLabels: {{- include "bitwarden.matchLabels" $ | nindent 6 }}
+      app: {{ .Release.Name }}-icons
+  {{- if .Values.global.updateStrategy }}
+  strategy: {{ toYaml .Values.global.updateStrategy | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      labels: {{- include "bitwarden.labels" $ | nindent 8 }}
+        app: {{ .Release.Name }}-icons
+      {{- if or .Values.services.icons.podAnnotations .Values.metrics.enabled }}
+      annotations: {}
+      {{- end }}
+    spec:
+      {{- if .Values.services.icons.securityContext.enabled }}
+      securityContext:
+        runAsUser: {{ .Values.services.icons.securityContext.runAsUser }}
+        fsGroup: {{ .Values.services.icons.securityContext.fsGroup }}
+      {{- end }}
+      restartPolicy: {{ .Values.services.icons.restartPolicy | quote }}
+      volumes:
+        - name: logs
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-logs-pvc
+        - name: certificates
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-certificates-pvc
+      containers:
+        - name: {{ printf "%s-icons" .Release.Name }}
+          image: {{ .Values.services.icons.image }}
+          volumeMounts:
+            - mountPath: /etc/bitwarden/ca-certificates
+              name: certificates
+            - mountPath: /etc/bitwarden/logs
+              name: logs
+              subPath: icons
+          imagePullPolicy: {{ .Values.services.icons.imagePullPolicy }}
+          {{- if .Values.checks.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /alive
+              port: 5000
+              scheme: HTTP
+              {{- if .Values.checks.livenessProbeHeaders }}
+              httpHeaders: {{- toYaml .Values.checks.livenessProbeHeaders | nindent 16 }}
+              {{- end }}
+            initialDelaySeconds: {{ .Values.checks.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.checks.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.checks.livenessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.checks.livenessProbe.successThreshold }}
+            failureThreshold: {{ .Values.checks.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.checks.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /alive
+              port: 5000
+              scheme: HTTP
+              {{- if .Values.checks.livenessProbeHeaders }}
+              httpHeaders: {{- toYaml .Values.checks.livenessProbeHeaders | nindent 16 }}
+              {{- end }}
+            initialDelaySeconds: {{ .Values.checks.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.checks.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.checks.readinessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.checks.readinessProbe.successThreshold }}
+            failureThreshold: {{ .Values.checks.readinessProbe.failureThreshold }}
+          {{- end }}
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: {{ .Values.global.environment }}
+            - name: globalSettings__selfHosted
+              value: "true"
+            - name: globalSettings__baseServiceUri__vault
+              value: "https://{{ .Values.global.domain }}"
+            - name: globalSettings__baseServiceUri__api
+              value: "https://{{ .Values.global.domain }}/api"
+            - name: globalSettings__baseServiceUri__identity
+              value: "https://{{ .Values.global.domain }}/identity"
+            - name: globalSettings__baseServiceUri__admin
+              value: "https://{{ .Values.global.domain }}/admin"
+            - name: globalSettings__baseServiceUri__notifications
+              value: "https://{{ .Values.global.domain }}/notifications"
+            - name: globalSettings__baseServiceUri__sso
+              value: https://{{ .Values.global.domain }}/sso
+            - name: globalSettings__baseServiceUri__portal
+              value: https://{{ .Values.global.domain }}/portal
+            - name: globalSettings__baseServiceUri__internalNotifications
+              value: http://bitwarden-notifications-service
+            - name: globalSettings__baseServiceUri__internalAdmin
+              value: http://bitwarden-admin-service
+            - name: globalSettings__baseServiceUri__internalIdentity
+              value: http://bitwarden-identity-service
+            - name: globalSettings__baseServiceUri__internalApi
+              value: http://bitwarden-api-service
+            - name: globalSettings__baseServiceUri__internalVault
+              value: http://bitwarden-web-service
+            - name: globalSettings__baseServiceUri__internalSso
+              value: http://bitwarden-sso-service
+            - name: globalSettings__baseServiceUri__internalPortal
+              value: http://bitwarden-portal-service
+            - name: globalSettings__pushRelayBaseUri
+              value: https://push.bitwarden.com
+            - name: globalSettings__installation__identityUri
+              value: https://identity.bitwarden.com      
+            - name: globalSettings__sqlServer__connectionString
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: mssql_dsn
+            - name: globalSettings__identityServer__certificatePassword
+              valueFrom: 
+                secretKeyRef:
+                  name: bitwarden-secrets
+                  key: certificate_password
+            - name: globalSettings__attachment__baseDirectory
+              value: /etc/bitwarden/core/attachments
+            - name: globalSettings__attachment__baseUrl
+              value: "https://{{ .Values.global.domain }}/attachments"
+            - name: globalSettings__dataProtection__directory
+              value: /etc/bitwarden/core/aspnet-dataprotection
+            - name: globalSettings__logDirectory
+              value: /etc/bitwarden/logs
+            - name: globalSettings__licenseDirectory
+              value: /etc/bitwarden/core/licenses
+            - name: globalSettings__oidcIdentityClientKey
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: oidc_identity_client_key
+            - name: globalSettings__internalIdentityKey
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: internal_identity_key
+            - name: globalSettings__duo__aKey
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: duo_akey
+            - name: globalSettings__installation__id
+              valueFrom: 
+                configMapKeyRef: 
+                  name: {{ .Release.Name }}-config
+                  key: installationId
+            - name: globalSettings__installation__key
+              valueFrom: 
+                configMapKeyRef: 
+                  name: {{ .Release.Name }}-config
+                  key: installationKey
+            - name: globalSettings__yubico__clientId
+              value: {{ .Values.global.env.yubico.globalSettings__yubico__clientId | quote }}
+            - name: globalSettings__yubico__key
+              valueFrom: 
+                secretKeyRef: 
+                  name: {{ .Release.Name }}-secrets
+                  key: yubico_key
+            - name: globalSettings__mail__replyToEmail
+              value: {{ .Values.global.env.mail.globalSettings__mail__replyToEmail | quote }}
+            - name: globalSettings__mail__smtp__host
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__host | quote }}
+            - name: globalSettings__mail__smtp__port
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__port | quote }}
+            - name: globalSettings__mail__smtp__ssl
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__ssl | quote }}
+            - name: globalSettings__mail__smtp__username
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__username | quote }}
+            - name: globalSettings__mail__smtp__trustServer
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__trustServer | quote }}
+            - name: globalSettings__mail__smtp__password
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: smtp_passwd
+            - name: globalSettings__disableUserRegistration
+              value: {{ .Values.global.env.userRegistration.globalSettings__disableUserRegistration | quote }}
+            - name: globalSettings__hibpApiKey
+              value: {{ .Values.global.env.hibp.globalSettings__hibpApiKey | quote }}
+            - name: adminSettings__admins
+              value: {{ .Values.global.env.admin.adminSettings__admins | quote }}
+          ports:
+            - name: icons
+              containerPort: 5000
+              protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ printf "%s-notifications-deployment" .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "bitwarden.labels" $ | nindent 4 }}
+    app: {{ .Release.Name }}-notifications
+spec:
+  replicas: {{ .Values.services.notifications.replicas }}
+  selector:
+    matchLabels: {{- include "bitwarden.matchLabels" $ | nindent 6 }}
+      app: {{ .Release.Name }}-notifications
+  {{- if .Values.global.updateStrategy }}
+  strategy: {{ toYaml .Values.global.updateStrategy | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      labels: {{- include "bitwarden.labels" $ | nindent 8 }}
+        app: {{ .Release.Name }}-notifications
+      {{- if or .Values.services.notifications.podAnnotations .Values.metrics.enabled }}
+      annotations: {}
+      {{- end }}
+    spec:
+      {{- if .Values.services.notifications.securityContext.enabled }}
+      securityContext:
+        runAsUser: {{ .Values.services.notifications.securityContext.runAsUser }}
+        fsGroup: {{ .Values.services.notifications.securityContext.fsGroup }}
+      {{- end }}
+      restartPolicy: {{ .Values.services.notifications.restartPolicy | quote }}
+      volumes:
+        - name: logs
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-logs-pvc
+        - name: certificates
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-certificates-pvc
+      containers:
+        - name: {{ printf "%s-notifications" .Release.Name }}
+          image: {{ .Values.services.notifications.image }}
+          volumeMounts:
+            - mountPath: /etc/bitwarden/ca-certificates
+              name: certificates
+            - mountPath: /etc/bitwarden/logs
+              name: logs
+              subPath: notifications
+          imagePullPolicy: {{ .Values.services.notifications.imagePullPolicy }}
+          {{- if .Values.checks.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /alive
+              port: 5000
+              scheme: HTTP
+              {{- if .Values.checks.livenessProbeHeaders }}
+              httpHeaders: {{- toYaml .Values.checks.livenessProbeHeaders | nindent 16 }}
+              {{- end }}
+            initialDelaySeconds: {{ .Values.checks.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.checks.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.checks.livenessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.checks.livenessProbe.successThreshold }}
+            failureThreshold: {{ .Values.checks.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.checks.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /alive
+              port: 5000
+              scheme: HTTP
+              {{- if .Values.checks.livenessProbeHeaders }}
+              httpHeaders: {{- toYaml .Values.checks.livenessProbeHeaders | nindent 16 }}
+              {{- end }}
+            initialDelaySeconds: {{ .Values.checks.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.checks.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.checks.readinessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.checks.readinessProbe.successThreshold }}
+            failureThreshold: {{ .Values.checks.readinessProbe.failureThreshold }}
+          {{- end }}
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: {{ .Values.global.environment }}
+            - name: globalSettings__selfHosted
+              value: "true"
+            - name: globalSettings__baseServiceUri__vault
+              value: "https://{{ .Values.global.domain }}"
+            - name: globalSettings__baseServiceUri__api
+              value: "https://{{ .Values.global.domain }}/api"
+            - name: globalSettings__baseServiceUri__identity
+              value: "https://{{ .Values.global.domain }}/identity"
+            - name: globalSettings__baseServiceUri__admin
+              value: "https://{{ .Values.global.domain }}/admin"
+            - name: globalSettings__baseServiceUri__notifications
+              value: "https://{{ .Values.global.domain }}/notifications"
+            - name: globalSettings__baseServiceUri__sso
+              value: https://{{ .Values.global.domain }}/sso
+            - name: globalSettings__baseServiceUri__portal
+              value: https://{{ .Values.global.domain }}/portal
+            - name: globalSettings__baseServiceUri__internalNotifications
+              value: http://bitwarden-notifications-service
+            - name: globalSettings__baseServiceUri__internalAdmin
+              value: http://bitwarden-admin-service
+            - name: globalSettings__baseServiceUri__internalIdentity
+              value: http://bitwarden-identity-service
+            - name: globalSettings__baseServiceUri__internalApi
+              value: http://bitwarden-api-service
+            - name: globalSettings__baseServiceUri__internalVault
+              value: http://bitwarden-web-service
+            - name: globalSettings__baseServiceUri__internalSso
+              value: http://bitwarden-sso-service
+            - name: globalSettings__baseServiceUri__internalPortal
+              value: http://bitwarden-portal-service
+            - name: globalSettings__pushRelayBaseUri
+              value: https://push.bitwarden.com
+            - name: globalSettings__installation__identityUri
+              value: https://identity.bitwarden.com      
+            - name: globalSettings__sqlServer__connectionString
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: mssql_dsn
+            - name: globalSettings__identityServer__certificatePassword
+              valueFrom: 
+                secretKeyRef:
+                  name: bitwarden-secrets
+                  key: certificate_password
+            - name: globalSettings__attachment__baseDirectory
+              value: /etc/bitwarden/core/attachments
+            - name: globalSettings__attachment__baseUrl
+              value: "https://{{ .Values.global.domain }}/attachments"
+            - name: globalSettings__dataProtection__directory
+              value: /etc/bitwarden/core/aspnet-dataprotection
+            - name: globalSettings__logDirectory
+              value: /etc/bitwarden/logs
+            - name: globalSettings__licenseDirectory
+              value: /etc/bitwarden/core/licenses
+            - name: globalSettings__oidcIdentityClientKey
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: oidc_identity_client_key
+            - name: globalSettings__internalIdentityKey
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: internal_identity_key
+            - name: globalSettings__duo__aKey
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: duo_akey
+            - name: globalSettings__installation__id
+              valueFrom: 
+                configMapKeyRef: 
+                  name: {{ .Release.Name }}-config
+                  key: installationId
+            - name: globalSettings__installation__key
+              valueFrom: 
+                configMapKeyRef: 
+                  name: {{ .Release.Name }}-config
+                  key: installationKey
+            - name: globalSettings__yubico__clientId
+              value: {{ .Values.global.env.yubico.globalSettings__yubico__clientId | quote }}
+            - name: globalSettings__yubico__key
+              valueFrom: 
+                secretKeyRef: 
+                  name: {{ .Release.Name }}-secrets
+                  key: yubico_key
+            - name: globalSettings__mail__replyToEmail
+              value: {{ .Values.global.env.mail.globalSettings__mail__replyToEmail | quote }}
+            - name: globalSettings__mail__smtp__host
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__host | quote }}
+            - name: globalSettings__mail__smtp__port
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__port | quote }}
+            - name: globalSettings__mail__smtp__ssl
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__ssl | quote }}
+            - name: globalSettings__mail__smtp__username
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__username | quote }}
+            - name: globalSettings__mail__smtp__trustServer
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__trustServer | quote }}
+            - name: globalSettings__mail__smtp__password
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: smtp_passwd
+            - name: globalSettings__disableUserRegistration
+              value: {{ .Values.global.env.userRegistration.globalSettings__disableUserRegistration | quote }}
+            - name: globalSettings__hibpApiKey
+              value: {{ .Values.global.env.hibp.globalSettings__hibpApiKey | quote }}
+            - name: adminSettings__admins
+              value: {{ .Values.global.env.admin.adminSettings__admins | quote }}
+          ports:
+            - name: notifications
+              containerPort: 5000
+              protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ printf "%s-events-deployment" .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "bitwarden.labels" $ | nindent 4 }}
+    app: {{ .Release.Name }}-events
+spec:
+  replicas: {{ .Values.services.events.replicas }}
+  selector:
+    matchLabels: {{- include "bitwarden.matchLabels" $ | nindent 6 }}
+      app: {{ .Release.Name }}-events
+  {{- if .Values.global.updateStrategy }}
+  strategy: {{ toYaml .Values.global.updateStrategy | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      labels: {{- include "bitwarden.labels" $ | nindent 8 }}
+        app: {{ .Release.Name }}-events
+      {{- if or .Values.services.events.podAnnotations .Values.metrics.enabled }}
+      annotations: {}
+      {{- end }}
+    spec:
+      {{- if .Values.services.events.securityContext.enabled }}
+      securityContext:
+        runAsUser: {{ .Values.services.events.securityContext.runAsUser }}
+        fsGroup: {{ .Values.services.events.securityContext.fsGroup }}
+      {{- end }}
+      restartPolicy: {{ .Values.services.events.restartPolicy | quote }}
+      volumes:
+        - name: logs
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-logs-pvc
+        - name: certificates
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-certificates-pvc
+      containers:
+        - name: {{ printf "%s-events" .Release.Name }}
+          image: {{ .Values.services.events.image }}
+          volumeMounts:
+            - mountPath: /etc/bitwarden/ca-certificates
+              name: certificates
+            - mountPath: /etc/bitwarden/logs
+              name: logs
+              subPath: events
+          imagePullPolicy: {{ .Values.services.events.imagePullPolicy }}
+          {{- if .Values.checks.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /alive
+              port: 5000
+              scheme: HTTP
+              {{- if .Values.checks.livenessProbeHeaders }}
+              httpHeaders: {{- toYaml .Values.checks.livenessProbeHeaders | nindent 16 }}
+              {{- end }}
+            initialDelaySeconds: {{ .Values.checks.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.checks.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.checks.livenessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.checks.livenessProbe.successThreshold }}
+            failureThreshold: {{ .Values.checks.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.checks.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /alive
+              port: 5000
+              scheme: HTTP
+              {{- if .Values.checks.livenessProbeHeaders }}
+              httpHeaders: {{- toYaml .Values.checks.livenessProbeHeaders | nindent 16 }}
+              {{- end }}
+            initialDelaySeconds: {{ .Values.checks.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.checks.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.checks.readinessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.checks.readinessProbe.successThreshold }}
+            failureThreshold: {{ .Values.checks.readinessProbe.failureThreshold }}
+          {{- end }}
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: {{ .Values.global.environment }}
+            - name: globalSettings__selfHosted
+              value: "true"
+            - name: globalSettings__baseServiceUri__vault
+              value: "https://{{ .Values.global.domain }}"
+            - name: globalSettings__baseServiceUri__api
+              value: "https://{{ .Values.global.domain }}/api"
+            - name: globalSettings__baseServiceUri__identity
+              value: "https://{{ .Values.global.domain }}/identity"
+            - name: globalSettings__baseServiceUri__admin
+              value: "https://{{ .Values.global.domain }}/admin"
+            - name: globalSettings__baseServiceUri__notifications
+              value: "https://{{ .Values.global.domain }}/notifications"
+            - name: globalSettings__baseServiceUri__sso
+              value: https://{{ .Values.global.domain }}/sso
+            - name: globalSettings__baseServiceUri__portal
+              value: https://{{ .Values.global.domain }}/portal
+            - name: globalSettings__baseServiceUri__internalNotifications
+              value: http://bitwarden-notifications-service
+            - name: globalSettings__baseServiceUri__internalAdmin
+              value: http://bitwarden-admin-service
+            - name: globalSettings__baseServiceUri__internalIdentity
+              value: http://bitwarden-identity-service
+            - name: globalSettings__baseServiceUri__internalApi
+              value: http://bitwarden-api-service
+            - name: globalSettings__baseServiceUri__internalVault
+              value: http://bitwarden-web-service
+            - name: globalSettings__baseServiceUri__internalSso
+              value: http://bitwarden-sso-service
+            - name: globalSettings__baseServiceUri__internalPortal
+              value: http://bitwarden-portal-service
+            - name: globalSettings__pushRelayBaseUri
+              value: https://push.bitwarden.com
+            - name: globalSettings__installation__identityUri
+              value: https://identity.bitwarden.com      
+            - name: globalSettings__sqlServer__connectionString
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: mssql_dsn
+            - name: globalSettings__identityServer__certificatePassword
+              valueFrom: 
+                secretKeyRef:
+                  name: bitwarden-secrets
+                  key: certificate_password
+            - name: globalSettings__attachment__baseDirectory
+              value: /etc/bitwarden/core/attachments
+            - name: globalSettings__attachment__baseUrl
+              value: "https://{{ .Values.global.domain }}/attachments"
+            - name: globalSettings__dataProtection__directory
+              value: /etc/bitwarden/core/aspnet-dataprotection
+            - name: globalSettings__logDirectory
+              value: /etc/bitwarden/logs
+            - name: globalSettings__licenseDirectory
+              value: /etc/bitwarden/core/licenses
+            - name: globalSettings__oidcIdentityClientKey
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: oidc_identity_client_key
+            - name: globalSettings__internalIdentityKey
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: internal_identity_key
+            - name: globalSettings__duo__aKey
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: duo_akey
+            - name: globalSettings__installation__id
+              valueFrom: 
+                configMapKeyRef: 
+                  name: {{ .Release.Name }}-config
+                  key: installationId
+            - name: globalSettings__installation__key
+              valueFrom: 
+                configMapKeyRef: 
+                  name: {{ .Release.Name }}-config
+                  key: installationKey
+            - name: globalSettings__yubico__clientId
+              value: {{ .Values.global.env.yubico.globalSettings__yubico__clientId | quote }}
+            - name: globalSettings__yubico__key
+              valueFrom: 
+                secretKeyRef: 
+                  name: {{ .Release.Name }}-secrets
+                  key: yubico_key
+            - name: globalSettings__mail__replyToEmail
+              value: {{ .Values.global.env.mail.globalSettings__mail__replyToEmail | quote }}
+            - name: globalSettings__mail__smtp__host
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__host | quote }}
+            - name: globalSettings__mail__smtp__port
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__port | quote }}
+            - name: globalSettings__mail__smtp__ssl
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__ssl | quote }}
+            - name: globalSettings__mail__smtp__username
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__username | quote }}
+            - name: globalSettings__mail__smtp__trustServer
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__trustServer | quote }}
+            - name: globalSettings__mail__smtp__password
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: smtp_passwd
+            - name: globalSettings__disableUserRegistration
+              value: {{ .Values.global.env.userRegistration.globalSettings__disableUserRegistration | quote }}
+            - name: globalSettings__hibpApiKey
+              value: {{ .Values.global.env.hibp.globalSettings__hibpApiKey | quote }}
+            - name: adminSettings__admins
+              value: {{ .Values.global.env.admin.adminSettings__admins | quote }}
+          ports:
+            - name: events
+              containerPort: 5000
+              protocol: TCP
+---
+{{ if .Values.services.sso.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ printf "%s-sso-deployment" .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "bitwarden.labels" $ | nindent 4 }}
+    app: {{ .Release.Name }}-sso
+spec:
+  replicas: {{ .Values.services.sso.replicas }}
+  selector:
+    matchLabels: {{- include "bitwarden.matchLabels" $ | nindent 6 }}
+      app: {{ .Release.Name }}-sso
+  {{- if .Values.global.updateStrategy }}
+  strategy: {{ toYaml .Values.global.updateStrategy | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      labels: {{- include "bitwarden.labels" $ | nindent 8 }}
+        app: {{ .Release.Name }}-sso
+      {{- if or .Values.services.sso.podAnnotations .Values.metrics.enabled }}
+      annotations: {}
+      {{- end }}
+    spec:
+      {{- if .Values.services.sso.securityContext.enabled }}
+      securityContext:
+        runAsUser: {{ .Values.services.sso.securityContext.runAsUser }}
+        fsGroup: {{ .Values.services.sso.securityContext.fsGroup }}
+      {{- end }}
+      restartPolicy: {{ .Values.services.sso.restartPolicy | quote }}
+      volumes:
+        - name: logs
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-logs-pvc
+        - name: core
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-core-pvc
+        - name: identity
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-identity-pvc
+        - name: certificates
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-certificates-pvc
+      containers:
+        - name: {{ printf "%s-sso" .Release.Name }}
+          image: {{ .Values.services.sso.image }}
+          volumeMounts:
+            - mountPath: /etc/bitwarden/ca-certificates
+              name: certificates
+            - mountPath: /etc/bitwarden/logs
+              name: logs
+              subPath: sso
+            - mountPath: /etc/bitwarden/identity
+              name: identity
+            - mountPath: /etc/bitwarden/core
+              name: core
+          imagePullPolicy: {{ .Values.services.sso.imagePullPolicy }}
+          {{- if .Values.checks.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /alive
+              port: 5000
+              scheme: HTTP
+              {{- if .Values.checks.livenessProbeHeaders }}
+              httpHeaders: {{- toYaml .Values.checks.livenessProbeHeaders | nindent 16 }}
+              {{- end }}
+            initialDelaySeconds: {{ .Values.checks.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.checks.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.checks.livenessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.checks.livenessProbe.successThreshold }}
+            failureThreshold: {{ .Values.checks.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.checks.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /alive
+              port: 5000
+              scheme: HTTP
+              {{- if .Values.checks.livenessProbeHeaders }}
+              httpHeaders: {{- toYaml .Values.checks.livenessProbeHeaders | nindent 16 }}
+              {{- end }}
+            initialDelaySeconds: {{ .Values.checks.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.checks.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.checks.readinessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.checks.readinessProbe.successThreshold }}
+            failureThreshold: {{ .Values.checks.readinessProbe.failureThreshold }}
+          {{- end }}
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: {{ .Values.global.environment }}
+            - name: globalSettings__selfHosted
+              value: "true"
+            - name: globalSettings__baseServiceUri__vault
+              value: "https://{{ .Values.global.domain }}"
+            - name: globalSettings__baseServiceUri__api
+              value: "https://{{ .Values.global.domain }}/api"
+            - name: globalSettings__baseServiceUri__identity
+              value: "https://{{ .Values.global.domain }}/identity"
+            - name: globalSettings__baseServiceUri__admin
+              value: "https://{{ .Values.global.domain }}/admin"
+            - name: globalSettings__baseServiceUri__notifications
+              value: "https://{{ .Values.global.domain }}/notifications"
+            - name: globalSettings__baseServiceUri__sso
+              value: https://{{ .Values.global.domain }}/sso
+            - name: globalSettings__baseServiceUri__portal
+              value: https://{{ .Values.global.domain }}/portal
+            - name: globalSettings__baseServiceUri__internalNotifications
+              value: http://bitwarden-notifications-service
+            - name: globalSettings__baseServiceUri__internalAdmin
+              value: http://bitwarden-admin-service
+            - name: globalSettings__baseServiceUri__internalIdentity
+              value: http://bitwarden-identity-service
+            - name: globalSettings__baseServiceUri__internalApi
+              value: http://bitwarden-api-service
+            - name: globalSettings__baseServiceUri__internalVault
+              value: http://bitwarden-web-service
+            - name: globalSettings__baseServiceUri__internalSso
+              value: http://bitwarden-sso-service
+            - name: globalSettings__baseServiceUri__internalPortal
+              value: http://bitwarden-portal-service
+            - name: globalSettings__pushRelayBaseUri
+              value: https://push.bitwarden.com
+            - name: globalSettings__installation__identityUri
+              value: https://identity.bitwarden.com      
+            - name: globalSettings__sqlServer__connectionString
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: mssql_dsn
+            - name: globalSettings__identityServer__certificatePassword
+              valueFrom: 
+                secretKeyRef:
+                  name: bitwarden-secrets
+                  key: certificate_password
+            - name: globalSettings__attachment__baseDirectory
+              value: /etc/bitwarden/core/attachments
+            - name: globalSettings__attachment__baseUrl
+              value: "https://{{ .Values.global.domain }}/attachments"
+            - name: globalSettings__dataProtection__directory
+              value: /etc/bitwarden/core/aspnet-dataprotection
+            - name: globalSettings__logDirectory
+              value: /etc/bitwarden/logs
+            - name: globalSettings__licenseDirectory
+              value: /etc/bitwarden/core/licenses
+            - name: globalSettings__oidcIdentityClientKey
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: oidc_identity_client_key
+            - name: globalSettings__internalIdentityKey
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: internal_identity_key
+            - name: globalSettings__duo__aKey
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: duo_akey
+            - name: globalSettings__installation__id
+              valueFrom: 
+                configMapKeyRef: 
+                  name: {{ .Release.Name }}-config
+                  key: installationId
+            - name: globalSettings__installation__key
+              valueFrom: 
+                configMapKeyRef: 
+                  name: {{ .Release.Name }}-config
+                  key: installationKey
+            - name: globalSettings__yubico__clientId
+              value: {{ .Values.global.env.yubico.globalSettings__yubico__clientId | quote }}
+            - name: globalSettings__yubico__key
+              valueFrom: 
+                secretKeyRef: 
+                  name: {{ .Release.Name }}-secrets
+                  key: yubico_key
+            - name: globalSettings__mail__replyToEmail
+              value: {{ .Values.global.env.mail.globalSettings__mail__replyToEmail | quote }}
+            - name: globalSettings__mail__smtp__host
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__host | quote }}
+            - name: globalSettings__mail__smtp__port
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__port | quote }}
+            - name: globalSettings__mail__smtp__ssl
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__ssl | quote }}
+            - name: globalSettings__mail__smtp__username
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__username | quote }}
+            - name: globalSettings__mail__smtp__trustServer
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__trustServer | quote }}
+            - name: globalSettings__mail__smtp__password
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: smtp_passwd
+            - name: globalSettings__disableUserRegistration
+              value: {{ .Values.global.env.userRegistration.globalSettings__disableUserRegistration | quote }}
+            - name: globalSettings__hibpApiKey
+              value: {{ .Values.global.env.hibp.globalSettings__hibpApiKey | quote }}
+            - name: adminSettings__admins
+              value: {{ .Values.global.env.admin.adminSettings__admins | quote }}
+          ports:
+            - name: sso
+              containerPort: 5000
+              protocol: TCP
+{{ end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ printf "%s-portal-deployment" .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "bitwarden.labels" $ | nindent 4 }} 
+    app: {{ .Release.Name }}-portal
+spec:
+  replicas: {{ .Values.services.portal.replicas }}
+  selector:
+    matchLabels: {{- include "bitwarden.matchLabels" $ | nindent 6 }}
+      app: {{ .Release.Name }}-portal
+  {{- if .Values.global.updateStrategy }}
+  strategy: {{ toYaml .Values.global.updateStrategy | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      labels: {{- include "bitwarden.labels" $ | nindent 8 }}
+        app: {{ .Release.Name }}-portal
+      {{- if or .Values.services.portal.podAnnotations .Values.metrics.enabled }}
+      annotations: {}
+      {{- end }}
+    spec:
+      {{- if .Values.services.portal.securityContext.enabled }}
+      securityContext:
+        runAsUser: {{ .Values.services.portal.securityContext.runAsUser }}
+        fsGroup: {{ .Values.services.portal.securityContext.fsGroup }}
+      {{- end }}
+      restartPolicy: {{ .Values.services.portal.restartPolicy | quote }}
+      volumes:
+        - name: logs
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-logs-pvc
+        - name: core
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-core-pvc
+        - name: certificates
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-certificates-pvc
+      containers:
+        - name: {{ printf "%s-portal" .Release.Name }}
+          image: {{ .Values.services.portal.image }}
+          volumeMounts:
+            - mountPath: /etc/bitwarden/ca-certificates
+              name: certificates
+            - mountPath: /etc/bitwarden/logs
+              name: logs
+              subPath: portal
+            - mountPath: /etc/bitwarden/core
+              name: core
+          imagePullPolicy: {{ .Values.services.portal.imagePullPolicy }}
+          {{- if .Values.checks.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /alive
+              port: 5000
+              scheme: HTTP
+              {{- if .Values.checks.livenessProbeHeaders }}
+              httpHeaders: {{- toYaml .Values.checks.livenessProbeHeaders | nindent 16 }}
+              {{- end }}
+            initialDelaySeconds: {{ .Values.checks.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.checks.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.checks.livenessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.checks.livenessProbe.successThreshold }}
+            failureThreshold: {{ .Values.checks.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.checks.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /alive
+              port: 5000
+              scheme: HTTP
+              {{- if .Values.checks.livenessProbeHeaders }}
+              httpHeaders: {{- toYaml .Values.checks.livenessProbeHeaders | nindent 16 }}
+              {{- end }}
+            initialDelaySeconds: {{ .Values.checks.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.checks.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.checks.readinessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.checks.readinessProbe.successThreshold }}
+            failureThreshold: {{ .Values.checks.readinessProbe.failureThreshold }}
+          {{- end }}
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: {{ .Values.global.environment }}
+            - name: globalSettings__selfHosted
+              value: "true"
+            - name: globalSettings__baseServiceUri__vault
+              value: "https://{{ .Values.global.domain }}"
+            - name: globalSettings__baseServiceUri__api
+              value: "https://{{ .Values.global.domain }}/api"
+            - name: globalSettings__baseServiceUri__identity
+              value: "https://{{ .Values.global.domain }}/identity"
+            - name: globalSettings__baseServiceUri__admin
+              value: "https://{{ .Values.global.domain }}/admin"
+            - name: globalSettings__baseServiceUri__notifications
+              value: "https://{{ .Values.global.domain }}/notifications"
+            - name: globalSettings__baseServiceUri__sso
+              value: https://{{ .Values.global.domain }}/sso
+            - name: globalSettings__baseServiceUri__portal
+              value: https://{{ .Values.global.domain }}/portal
+            - name: globalSettings__baseServiceUri__internalNotifications
+              value: http://bitwarden-notifications-service
+            - name: globalSettings__baseServiceUri__internalAdmin
+              value: http://bitwarden-admin-service
+            - name: globalSettings__baseServiceUri__internalIdentity
+              value: http://bitwarden-identity-service
+            - name: globalSettings__baseServiceUri__internalApi
+              value: http://bitwarden-api-service
+            - name: globalSettings__baseServiceUri__internalVault
+              value: http://bitwarden-web-service
+            - name: globalSettings__baseServiceUri__internalSso
+              value: http://bitwarden-sso-service
+            - name: globalSettings__baseServiceUri__internalPortal
+              value: http://bitwarden-portal-service
+            - name: globalSettings__pushRelayBaseUri
+              value: https://push.bitwarden.com
+            - name: globalSettings__installation__identityUri
+              value: https://identity.bitwarden.com      
+            - name: globalSettings__sqlServer__connectionString
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: mssql_dsn
+            - name: globalSettings__identityServer__certificatePassword
+              valueFrom: 
+                secretKeyRef:
+                  name: bitwarden-secrets
+                  key: certificate_password
+            - name: globalSettings__attachment__baseDirectory
+              value: /etc/bitwarden/core/attachments
+            - name: globalSettings__attachment__baseUrl
+              value: "https://{{ .Values.global.domain }}/attachments"
+            - name: globalSettings__dataProtection__directory
+              value: /etc/bitwarden/core/aspnet-dataprotection
+            - name: globalSettings__logDirectory
+              value: /etc/bitwarden/logs
+            - name: globalSettings__licenseDirectory
+              value: /etc/bitwarden/core/licenses
+            - name: globalSettings__oidcIdentityClientKey
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: oidc_identity_client_key
+            - name: globalSettings__internalIdentityKey
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: internal_identity_key
+            - name: globalSettings__duo__aKey
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: duo_akey
+            - name: globalSettings__installation__id
+              valueFrom: 
+                configMapKeyRef: 
+                  name: {{ .Release.Name }}-config
+                  key: installationId
+            - name: globalSettings__installation__key
+              valueFrom: 
+                configMapKeyRef: 
+                  name: {{ .Release.Name }}-config
+                  key: installationKey
+            - name: globalSettings__yubico__clientId
+              value: {{ .Values.global.env.yubico.globalSettings__yubico__clientId | quote }}
+            - name: globalSettings__yubico__key
+              valueFrom: 
+                secretKeyRef: 
+                  name: {{ .Release.Name }}-secrets
+                  key: yubico_key
+            - name: globalSettings__mail__replyToEmail
+              value: {{ .Values.global.env.mail.globalSettings__mail__replyToEmail | quote }}
+            - name: globalSettings__mail__smtp__host
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__host | quote }}
+            - name: globalSettings__mail__smtp__port
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__port | quote }}
+            - name: globalSettings__mail__smtp__ssl
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__ssl | quote }}
+            - name: globalSettings__mail__smtp__username
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__username | quote }}
+            - name: globalSettings__mail__smtp__trustServer
+              value: {{ .Values.global.env.mail.globalSettings__mail__smtp__trustServer | quote }}
+            - name: globalSettings__mail__smtp__password
+              valueFrom: 
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: smtp_passwd
+            - name: globalSettings__disableUserRegistration
+              value: {{ .Values.global.env.userRegistration.globalSettings__disableUserRegistration | quote }}
+            - name: globalSettings__hibpApiKey
+              value: {{ .Values.global.env.hibp.globalSettings__hibpApiKey | quote }}
+            - name: adminSettings__admins
+              value: {{ .Values.global.env.admin.adminSettings__admins | quote }}
+          ports:
+            - name: portal
+              containerPort: 5000
+              protocol: TCP

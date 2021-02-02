@@ -1,0 +1,94 @@
+{{ if .Values.ingress.enabled }}
+#apiVersion: networking.k8s.io/v1beta1
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-ingress
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    #nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    #nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    #nginx.ingress.kubernetes.io/enable-cors: "true"
+    #nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    #nginx.ingress.kubernetes.io/use-regex: "true"
+    #nginx.ingress.kubernetes.io/rewrite-target: /$1
+    #nginx.ingress.kubernetes.io/configuration-snippet: |
+    #  more_set_headers "Content-Security-Policy: \"default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://haveibeenpwned.com https://www.gravatar.com; child-src 'self' https://*.duosecurity.com; frame-src 'self' https://*.duosecurity.com; connect-src 'self' wss://{{ .Values.global.domain }} https://api.pwnedpasswords.com https://twofactorauth.org; object-src 'self' blob:\"";
+    #  more_set_headers "X-Frame-Options: SAMEORIGIN";
+    #  more_set_headers "X-Robots-Tag: \"noindex, nofollow\"";
+    {{- range $key, $val := .Values.ingress.annotations }}
+    {{ $key }}: {{ $val | quote | indent 4}}
+    {{- end }}
+    #traefik.ingress.kubernetes.io/request-modifier: "ReplacePathRegex: ^/(api|attachments|sso|events|notifications|icons|identity)/(.*) /$2"
+    #kubernetes.io/ingress.class: traefik
+
+spec:
+  tls:
+    - secretName: {{ .Values.ingress.tls.secretName }}
+      hosts:
+      - {{ .Values.global.domain | quote }}
+      # - {{ printf "%s.%s" "admin" .Values.global.domain | quote }}
+
+  rules:
+    # - host: {{ printf "%s.%s" "admin" .Values.global.domain }}
+    #   http:
+    #     paths:
+    #       - path: /
+    #         backend:
+    #           serviceName: {{ .Release.Name }}-admin-service
+    #           servicePort: admin
+
+    - host: {{ .Values.global.domain | quote }}
+      http:
+        paths:
+        - path: /api
+          #pathType: Prefix
+          backend:
+            serviceName: {{ .Release.Name }}-api-service
+            servicePort: api
+        - path: /identity
+          #pathType: Prefix
+          backend:
+            serviceName: {{ .Release.Name }}-identity-service
+            servicePort: identity
+        - path: /events
+          #pathType: Prefix
+          backend:
+            serviceName: {{ .Release.Name }}-events-service
+            servicePort: events
+        - path: /notifications
+          #pathType: Prefix
+          backend:
+            serviceName: {{ .Release.Name }}-notifications-service
+            servicePort: notifications
+        - path: /admin
+          #pathType: Prefix
+          backend:
+            serviceName: {{ .Release.Name }}-admin-service
+            servicePort: admin
+        - path: /icons
+          #pathType: Prefix
+          backend:
+            serviceName: {{ .Release.Name }}-icons-service
+            servicePort: icons
+        - path: /attachments
+          #pathType: Prefix
+          backend:
+            serviceName: {{ .Release.Name }}-attachments-service
+            servicePort: attachments
+        - path: /sso
+          #pathType: Prefix
+          backend:
+            serviceName: {{ .Release.Name }}-sso-service
+            servicePort: sso
+        - path: /portal
+          #pathType: Prefix
+          backend:
+            serviceName: {{ .Release.Name }}-portal-service
+            servicePort: portal
+        - path: /
+          #pathType: Prefix
+          backend:
+            serviceName: {{ .Release.Name }}-web-service
+            servicePort: web
+{{ end }}

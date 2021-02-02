@@ -1,0 +1,1244 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bitwarden
+  labels:
+    name: bitwarden
+
+---
+# apiVersion: v1
+# kind: ServiceAccount
+# metadata:
+#   name: bitwarden
+# automountServiceAccountToken: false
+
+---
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: bitwarden-secret-tls
+#   namespace: bitwarden
+# type: kubernetes.io/tls
+# data:
+#   tls.crt: |
+#     MIIEEDCCAvigAwIBAgIDEAAEMA0GCSqGSIb3DQEBCwUAMGIxCzAJBgNVBAYTAlVTMRYwFAYDVQQKEw1TRVZFTlNJWFNFVkVOMQswCQYDVQQLEwJJVDEMMAoGA1UECxMDZTlnMSAwHgYDVQQDExdTRVZFTlNJWFNFVkVOIFNlcnZlciBDQTAeFw0yMDExMjMyMjMzMzlaFw0yMjExMjMyMjMzMzlaMGwxCzAJBgNVBAYTAlVTMRYwFAYDVQQKEw1TRVZFTlNJWFNFVkVOMRIwEAYDVQQLEwlCaXR3YXJkZW4xCzAJBgNVBAsTAklUMSQwIgYDVQQDExtiaXR3YXJkZW4uc2V2ZW5zaXhzZXZlbi5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC9gawX3MGEbwzOeSw6Wru0PQ3iDGK6V2fAPSsOW1rPYVRbZHk2GoIe9K52kbwm0WH3O+oUtPEM5RWzsDnhwmcqwCtBgJRYPryNW2qFHVa/DZjKGQ8nt5nPkm3x+Xmi9v1WG7efaYECoIfggsC6y9n8mSSX9Y3eiTZhZp0+9q2U9bMidL3mybpWi6PRThIqGKjT0cQAcFumtFLyixlPEI/KmW6XGkYNChxgEf9snlHUE+9/Eh8zvgZDaa21cjcMubVdRzWSiVkvX6Crb8qlelO68fuggRuXKTSzRq6sDe9MluLwHEug/oC1cKPmIWdXTYl9a5kZRbaoLCGRcsDmscIvAgMBAAGjgcQwgcEwJgYDVR0RBB8wHYIbYml0d2FyZGVuLnNldmVuc2l4c2V2ZW4uY29tMAkGA1UdEwQCMAAwEQYJYIZIAYb4QgEBBAQDAgbAMAsGA1UdDwQEAwID+DAsBglghkgBhvhCAQ0EHxYdT3BlblNTTCBHZW5lcmF0ZWQgQ2VydGlmaWNhdGUwHQYDVR0OBBYEFBNlsuHPGbrm+GjPO/Htwn50n32ZMB8GA1UdIwQYMBaAFF5He9XycdPEOgvzMX6yQ/b4aebsMA0GCSqGSIb3DQEBCwUAA4IBAQAzB9VMxz4SMq9SP6dy+ARORiu2GLOunCBU6cOH64BIB6na7ibyx/EGLc2QJAnBylcil+kFfKKz4cIiEc9sLIirC71x92OKs5fXefK67ldeXLTl05p39XsF4zfbfKyG1UQujH2IOs6q8wEN/QBRnytMkUNmEUhovAPwf8uabJv5xL8/WW+kB760Vv7xYOrfGzh7L8NjMURlq0vHwoy+cwWNmCdPcCnvfqVlZiTi5yFWB+t2GqjQP3Ow29XE7hPojZLFb/IdyqOxP4XkXyAB/9yEz7Z4oOQAKfWkWy77hhyFWgQ3DQnYB/4FLLOwIdVYUU+EyR9vdCK5i++5ljitG3Nj
+#   tls.key: |
+#     MIIEowIBAAKCAQEAvYGsF9zBhG8MznksOlq7tD0N4gxiuldnwD0rDltaz2FUW2R5NhqCHvSudpG8JtFh9zvqFLTxDOUVs7A54cJnKsArQYCUWD68jVtqhR1Wvw2YyhkPJ7eZz5Jt8fl5ovb9Vhu3n2mBAqCH4ILAusvZ/Jkkl/WN3ok2YWadPvatlPWzInS95sm6Vouj0U4SKhio09HEAHBbprRS8osZTxCPyplulxpGDQocYBH/bJ5R1BPvfxIfM74GQ2mttXI3DLm1XUc1kolZL1+gq2/KpXpTuvH7oIEblyk0s0aurA3vTJbi8BxLoP6AtXCj5iFnV02JfWuZGUW2qCwhkXLA5rHCLwIDAQABAoIBAEsaeg6W8aa/sA6gHTQfQ2aiD793cyUwgLDCTS8Ka4nmo9z4i8UyakFEbWQWS8ACmVW3TATa1PFsVNZ6z+W1+tcJg9sYzzHN40IOab/Jqdhb1iK6HbR64h1Ohf4xBdDdG/elUnd+A5/76P3ENAeTxJeERelnass4C/I8DbOnZZGzw36ArHAKE2hsdxmlnSwXOIXw37N9LoLLgdGs0f9wNhUpx6ulp/4EOyD7ufa7uqnT1ftLWLYWpg5w5vhSM3CdW4gg67RWBV56Rrf6cF7e9+5mARumXbmXAc8TmOWevAB+m6ZJOd9g9oWAwO1+qfzNzKtxHt2mhvw0PaJDh59hmWECgYEA5qxvZCmBn83To7zxpGG5Dashq8JbZ0X4pXNxJckAiSqzt5/Spv+AW7IN+7ww6hEmZppBgYCAH0sSskT3ukztARH/JewcTWbk23LTjs4cC7tZgZ6olHyA5VqNt1IvAKI+Y0YuFJCx8tRE7TIKYcX8HxQ0on+YI0Hrm0X+1sndjhECgYEA0lAmp+dDysBjjjKc9dzpCZuoow5q4fJXZIwsq/k+B8YryRFi2SPKp9Hf6TXbOKb65uIPziZe6Ou20liLo8hHMrKNYfzjj+m4BBy8ICbROnjKWE1Am4bprvZrtkv3k7VZafYIbnhnYmD0xRnpE4yb2LEW7U7YLb5G+OZdMldTDD8CgYBUoPbNHJ0979mxvOQ6ls+5wAs+ZLP8E6PBr7TXVAMqT8xXlf9G3X5OJekTblvTxC7+faGCzY4z7OsTFFJ+uzJIrj2ZwCIyE4nrKRmMzvljJH0WHQtkTrlLbAmKNFCiPuP8sAa/7MYcfNw82ZsNfAGftV4KMB208b5q3Sc9zhnGwQKBgHCYxslX0HypWeOUh2I+PmmNc9CwdFq5kz5aqcP8sdAZsfF5JHHabrJAc994nQCMrYGVAB8/fcq3/+5Hx6MNI8kpvPX8HZ075PAWrkWMYrIqXzK9UVyy80Nf3LUBoO/sxI0tUsBKKBeMjx9DSvzTZ9CwpvSwJJ8A4yB4vOapx+WjAoGBAJWbAcOGYOveeDIO89LBa0hsQ+x891vOEgNEcJvHHSsoge4Eha6UzJ0wbQppgzm8iZDULGxYanPpvJzshiGOYEkbDlyiUg6xfvIzotFk+rKtiFOlXHiOshQWo8Zhz7xGFsAa1DeZKJikuUaQL5XGeu8KjbclncpKa5WFLDbHTdHq
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bitwarden-config
+  namespace: bitwarden
+data:
+  ACCEPT_EULA: "Y"
+  MSSQL_PID: "Express"
+  SA_PASSWORD: "dh8tzlxk7u9HE5LIZE80I40NNP4xfMZu"
+  ASPNETCORE_ENVIRONMENT: "Production"
+  globalSettings__selfHosted: "true"
+  globalSettings__baseServiceUri__vault: "https://bitwarden.example.com"
+  globalSettings__baseServiceUri__api: "https://bitwarden.example.com/api"
+  globalSettings__baseServiceUri__identity: "https://bitwarden.example.com/identity"
+  globalSettings__baseServiceUri__admin: "https://bitwarden.example.com/admin"
+  globalSettings__baseServiceUri__notifications: "https://bitwarden.example.com/notifications"
+  globalSettings__baseServiceUri__sso: "https://bitwarden.example.com/sso"
+  globalSettings__baseServiceUri__portal: "https://bitwarden.example.com/portal"
+  globalSettings__baseServiceUri__internalNotifications: "http://127.0.0.1:5506"
+  globalSettings__baseServiceUri__internalAdmin: "http://127.0.0.1:5504"
+  globalSettings__baseServiceUri__internalIdentity: "http://127.0.0.1:5503"
+  globalSettings__baseServiceUri__internalApi: "http://127.0.0.1:5502"
+  globalSettings__baseServiceUri__internalVault: "http://127.0.0.1:5500"
+  globalSettings__baseServiceUri__internalsso: "http://127.0.0.1:5508"
+  globalSettings__baseServiceUri__internalportal: "http://127.0.0.1:5509"
+  globalSettings__pushRelayBaseUri: "https://push.bitwarden.com"
+  globalSettings__installation__identityUri: "https://identity.bitwarden.com"
+  globalSettings__sqlServer__connectionString: "Data Source=tcp:127.0.0.1,1433;Initial Catalog=vault;Persist Security Info=False;User ID=sa;Password=dh8tzlxk7u9HE5LIZE80I40NNP4xfMZu;MultipleActiveResultSets=False;Connect Timeout=30;Encrypt=True;TrustServerCertificate=True"
+  globalSettings__identityServer__certificatePassword: "5JR77A1XjUvr75B9ZWNSP2mocIt1gD7u"
+  globalSettings__attachment__baseDirectory: "/etc/bitwarden/core/attachments"
+  globalSettings__attachment__baseUrl: "https://bitwarden.example.com/attachments"
+  globalSettings__send__baseDirectory: /etc/bitwarden/core/attachments/send
+  globalSettings__send__baseUrl: https://bitwarden.example.com/attachments/send
+  globalSettings__dataProtection__directory: "/etc/bitwarden/core/aspnet-dataprotection"
+  globalSettings__logDirectory: "/etc/bitwarden/logs"
+  globalSettings__logRollBySizeLimit: ""
+  globalSettings__syslog__destination: ""
+  globalSettings__licenseDirectory: "/etc/bitwarden/core/licenses"
+  globalSettings__internalIdentityKey: "wWzWFKvligPRUy0vf7sMKgLF92NebAC7deB41lgo1Fu05dhU4qvbDmTtcqaTnIjk"
+  globalSettings__oidcIdentityClientKey: "C9VELDsgLpb828y4k6LNhwsKV2ENFuvf4xj5CYGK2HJx7bWLWIhaBXeB9Phh2HbP"
+  globalSettings__duo__aKey: "y3mBJ34HqjrW3MXx1qc8GkF3EhZeOjUi1YwPYbmVepDsAnjIDd9EeWqemd1mERuR"
+  globalSettings__installation__id: "47dab160-9a18-4f6a-827b-a9e4004b390f"
+  globalSettings__installation__key: "eImbLHRm7BGbVRcrXQSw"
+  globalSettings__yubico__clientId: "REPLACE"
+  globalSettings__yubico__key: "REPLACE"
+  globalSettings__mail__replyToEmail: "no-reply@bitwarden.example.com"
+  globalSettings__mail__smtp__host: "smtp.example.com"
+  globalSettings__mail__smtp__port: "587"
+  globalSettings__mail__smtp__ssl: "false"
+  globalSettings__mail__smtp__username: "REPLACE"
+  globalSettings__mail__smtp__password: "REPLACE"
+  globalSettings__disableUserRegistration: "false"
+  globalSettings__hibpApiKey: "REPLACE"
+  adminSettings__admins: "bitwarden@bitwarden.example.com"
+  LOCAL_UID: "1000"
+  LOCAL_GID: "1000"
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-mssql-data
+  labels:
+    name: pv-bitwarden-mssql-data
+    type: local
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /opt/bitwarden/bwdata/mssql/data
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-mssql-log
+  labels:
+    name: pv-bitwarden-mssql-log
+    type: local
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /opt/bitwarden/bwdata/mssql/log
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-mssql-backups
+  labels:
+    name: pv-bitwarden-mssql-backups
+    type: local
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /opt/bitwarden/bwdata/mssql/backups
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-web
+  labels:
+    name: pv-bitwarden-web
+    type: local
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /opt/bitwarden/bwdata/web
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-attachments
+  labels:
+    name: pv-bitwarden-attachments
+    type: local
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /opt/bitwarden/bwdata/core/attachments
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-core
+  labels:
+    name: pv-bitwarden-core
+    type: local
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /opt/bitwarden/bwdata/core
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-cacerts
+  labels:
+    name: pv-bitwarden-cacerts
+    type: local
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /opt/bitwarden/bwdata/ca-certificates
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-identity
+  labels:
+    name: pv-bitwarden-identity
+    type: local
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /opt/bitwarden/bwdata/identity
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-nginx
+  labels:
+    name: pv-bitwarden-nginx
+    type: local
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /opt/bitwarden/bwdata/nginx
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-letsencrypt
+  labels:
+    name: pv-bitwarden-letsencrypt
+    type: local
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /opt/bitwarden/bwdata/letsencrypt
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-ssl
+  labels:
+    name: pv-bitwarden-ssl
+    type: local
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /opt/bitwarden/bwdata/ssl
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-sso-logs
+  labels:
+    name: pv-bitwarden-sso-logs
+    type: local
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /opt/bitwarden/bwdata/logs/sso
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-portal-logs
+  labels:
+    name: pv-bitwarden-portal-logs
+    type: local
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /opt/bitwarden/bwdata/logs/portal
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-events-logs
+  labels:
+    name: pv-bitwarden-events-logs
+    type: local
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /opt/bitwarden/bwdata/logs/events
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-nginx-logs
+  labels:
+    name: pv-bitwarden-nginx-logs
+    type: local
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /opt/bitwarden/bwdata/logs/nginx
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-identity-logs
+  labels:
+    name: pv-bitwarden-identity-logs
+    type: local
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /opt/bitwarden/bwdata/logs/identity
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-admin-logs
+  labels:
+    name: pv-bitwarden-admin-logs
+    type: local
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /opt/bitwarden/bwdata/logs/admin
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-api-logs
+  labels:
+    name: pv-bitwarden-api-logs
+    type: local
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /opt/bitwarden/bwdata/logs/api
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-icons-logs
+  labels:
+    name: pv-bitwarden-icons-logs
+    type: local
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /opt/bitwarden/bwdata/logs/icons
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-notifications-logs
+  labels:
+    name: pv-bitwarden-notifications-logs
+    type: local
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /opt/bitwarden/bwdata/logs/notifications
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-mssql-data
+spec:
+  selector:
+    matchLabels:
+      name: pv-bitwarden-mssql-data
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-mssql-log
+spec:
+  selector:
+    matchLabels:
+      name: pv-bitwarden-mssql-log
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-mssql-backups
+spec:
+  selector:
+    matchLabels:
+      name: pv-bitwarden-mssql-backups
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-web
+spec:
+  selector:
+    matchLabels:
+      name: pv-bitwarden-web
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-attachments
+spec:
+  selector:
+    matchLabels:
+      name: pv-bitwarden-attachments
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-core
+spec:
+  selector:
+    matchLabels:
+      name: pv-bitwarden-core
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-cacerts
+spec:
+  selector:
+    matchLabels:
+      name: pv-bitwarden-cacerts
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-identity
+spec:
+  selector:
+    matchLabels:
+      name: pv-bitwarden-identity
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-nginx
+spec:
+  selector:
+    matchLabels:
+      name: pv-bitwarden-nginx
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-letsencrypt
+spec:
+  selector:
+    matchLabels:
+      name: pv-bitwarden-letsencrypt
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-ssl
+spec:
+  selector:
+    matchLabels:
+      name: pv-bitwarden-ssl
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-sso-logs
+spec:
+  selector:
+    matchLabels:
+      name: pv-bitwarden-sso-logs
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-portal-logs
+spec:
+  selector:
+    matchLabels:
+      name: pv-bitwarden-portal-logs
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-events-logs
+spec:
+  selector:
+    matchLabels:
+      name: pv-bitwarden-events-logs
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-nginx-logs
+spec:
+  selector:
+    matchLabels:
+      name: pv-bitwarden-nginx-logs
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-identity-logs
+spec:
+  selector:
+    matchLabels:
+      name: pv-bitwarden-identity-logs
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-admin-logs
+spec:
+  selector:
+    matchLabels:
+      name: pv-bitwarden-admin-logs
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-api-logs
+spec:
+  selector:
+    matchLabels:
+      name: pv-bitwarden-api-logs
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-icons-logs
+spec:
+  selector:
+    matchLabels:
+      name: pv-bitwarden-icons-logs
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: bitwarden
+  name: pv-bitwarden-notifications-logs
+spec:
+  selector:
+    matchLabels:
+      name: pv-bitwarden-notifications-logs
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: bitwarden
+  name: bitwarden
+  labels:
+    app: bitwarden
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bitwarden
+  template:
+    metadata:
+      labels:
+        app: bitwarden
+    spec:
+      containers:
+      - name: bitwarden-mssql
+        image: bitwarden/mssql:1.38.4
+        resources:
+          limits:
+            memory: 2Gi
+            #cpu: 1 
+        envFrom:
+        - configMapRef:
+            name: bitwarden-config
+        ports:
+        - containerPort: 1433
+        volumeMounts:
+        - name: pv-bitwarden-mssql-data
+          mountPath: /var/opt/mssql/data
+        - name: pv-bitwarden-mssql-log
+          mountPath: /var/opt/mssql/log
+        - name: pv-bitwarden-mssql-backups
+          mountPath: /etc/bitwarden/mssql/backups
+      - name: bitwarden-web
+        image: bitwarden/web:2.17.1
+        resources:
+          #limits:
+            #memory: "0.5Gi" 
+            #cpu: "500m"
+        envFrom:
+        - configMapRef:
+            name: bitwarden-config
+        env:
+        - name: ASPNETCORE_URLS
+          value: http://+:5500
+        ports:
+        - containerPort: 5500
+        volumeMounts:
+        - name: pv-bitwarden-web
+          mountPath: /etc/bitwarden/web
+      - name: bitwarden-attachments
+        image: bitwarden/attachments:1.38.4
+        resources:
+          #limits:
+            #memory: "0.5Gi"
+            #cpu: "500m"
+        envFrom:
+        - configMapRef:
+            name: bitwarden-config
+        env:
+        - name: ASPNETCORE_URLS
+          value: http://+:5501
+        ports:
+        - containerPort: 5501
+        volumeMounts:
+        - name: pv-bitwarden-attachments
+          mountPath: /etc/bitwarden/core/attachments
+      - name: bitwarden-api
+        image: bitwarden/api:1.38.4
+        resources:
+          #limits:
+            #memory: "0.5Gi"
+            #cpu: "500m"
+        envFrom:
+        - configMapRef:
+            name: bitwarden-config
+        env:
+        - name: ASPNETCORE_URLS
+          value: http://+:5502
+        ports:
+        - containerPort: 5502
+        volumeMounts:
+        - name: pv-bitwarden-core
+          mountPath: /etc/bitwarden/core
+        - name: pv-bitwarden-cacerts
+          mountPath: /etc/bitwarden/ca-certificates
+        - name: pv-bitwarden-api-logs
+          mountPath: /etc/bitwarden/logs
+      - name: bitwarden-identity
+        image: bitwarden/identity:1.38.4
+        resources:
+          #limits:
+            #memory: "0.5Gi"
+            #cpu: "500m"
+        envFrom:
+        - configMapRef:
+            name: bitwarden-config
+        env:
+        - name: ASPNETCORE_URLS
+          value: http://+:5503
+        ports:
+        - containerPort: 5503
+        volumeMounts:
+        - name: pv-bitwarden-identity
+          mountPath: /etc/bitwarden/identity
+        - name: pv-bitwarden-core
+          mountPath: /etc/bitwarden/core
+        - name: pv-bitwarden-cacerts
+          mountPath: /etc/bitwarden/ca-certificates
+        - name: pv-bitwarden-identity-logs
+          mountPath: /etc/bitwarden/logs
+      - name: bitwarden-sso
+        image: bitwarden/sso:1.38.4
+        resources:
+          #limits:
+            #memory: "0.5Gi"
+            #cpu: "500m"
+        envFrom:
+        - configMapRef:
+            name: bitwarden-config
+        env:
+        - name: ASPNETCORE_URLS
+          value: http://+:5508
+        ports:
+        - containerPort: 5508
+        volumeMounts:
+        - name: pv-bitwarden-identity
+          mountPath: /etc/bitwarden/identity
+        - name: pv-bitwarden-core
+          mountPath: /etc/bitwarden/core
+        - name: pv-bitwarden-cacerts
+          mountPath: /etc/bitwarden/ca-certificates
+        - name: pv-bitwarden-sso-logs
+          mountPath: /etc/bitwarden/logs
+      - name: bitwarden-admin
+        image: bitwarden/admin:1.38.4
+        resources:
+          #limits:
+            #memory: "0.5Gi"
+            #cpu: "500m"
+        envFrom:
+        - configMapRef:
+            name: bitwarden-config
+        env:
+        - name: ASPNETCORE_URLS
+          value: http://+:5504
+        ports:
+        - containerPort: 5504
+        volumeMounts:
+        - name: pv-bitwarden-core
+          mountPath: /etc/bitwarden/core
+        - name: pv-bitwarden-cacerts
+          mountPath: /etc/bitwarden/ca-certificates
+        - name: pv-bitwarden-admin-logs
+          mountPath: /etc/bitwarden/logs
+      - name: bitwarden-portal
+        image: bitwarden/portal:1.38.4
+        resources:
+          #limits:
+            #memory: "0.5Gi"
+            #cpu: "500m"
+        envFrom:
+        - configMapRef:
+            name: bitwarden-config
+        env:
+        - name: ASPNETCORE_URLS
+          value: http://+:5509
+        ports:
+        - containerPort: 5509
+        volumeMounts:
+        - name: pv-bitwarden-core
+          mountPath: /etc/bitwarden/core
+        - name: pv-bitwarden-cacerts
+          mountPath: /etc/bitwarden/ca-certificates
+        - name: pv-bitwarden-portal-logs
+          mountPath: /etc/bitwarden/logs
+      - name: bitwarden-icons
+        image: bitwarden/icons:1.38.4
+        resources:
+          #limits:
+            #memory: "0.5Gi"
+            #cpu: "500m"
+        envFrom:
+        - configMapRef:
+            name: bitwarden-config
+        env:
+        - name: ASPNETCORE_URLS
+          value: http://+:5505
+        ports:
+        - containerPort: 5505
+        volumeMounts:
+        - name: pv-bitwarden-cacerts
+          mountPath: /etc/bitwarden/ca-certificates
+        - name: pv-bitwarden-icons-logs
+          mountPath: /etc/bitwarden/logs
+      - name: bitwarden-notifications
+        image: bitwarden/notifications:1.38.4
+        resources:
+          #limits:
+            #memory: "0.5Gi"
+            #cpu: "500m"
+        envFrom:
+        - configMapRef:
+            name: bitwarden-config
+        env:
+        - name: ASPNETCORE_URLS
+          value: http://+:5506
+        ports:
+        - containerPort: 5506
+        volumeMounts:
+        - name: pv-bitwarden-cacerts
+          mountPath: /etc/bitwarden/ca-certificates
+        - name: pv-bitwarden-notifications-logs
+          mountPath: /etc/bitwarden/logs
+      - name: bitwarden-events
+        image: bitwarden/events:1.38.4
+        resources:
+          #limits:
+            #memory: "0.5Gi"
+            #cpu: "500m"
+        envFrom:
+        - configMapRef:
+            name: bitwarden-config
+        env:
+        - name: ASPNETCORE_URLS
+          value: http://+:5507
+        ports:
+        - containerPort: 5507
+        volumeMounts:
+        - name: pv-bitwarden-cacerts
+          mountPath: /etc/bitwarden/ca-certificates
+        - name: pv-bitwarden-events-logs
+          mountPath: /etc/bitwarden/logs
+      - name: bitwarden-nginx
+        image: bitwarden/nginx:1.38.4
+        resources:
+          #limits:
+            #memory: "0.5Gi"
+            #cpu: 1
+        envFrom:
+        - configMapRef:
+            name: bitwarden-config
+        ports:
+        - name: http-port
+          containerPort: 8888
+        volumeMounts:
+        - name: pv-bitwarden-nginx
+          mountPath: /etc/bitwarden/nginx
+        - name: pv-bitwarden-letsencrypt
+          mountPath: /etc/letsencrypt
+        - name: pv-bitwarden-ssl
+          mountPath: /etc/ssl
+        - name: pv-bitwarden-nginx-logs
+          mountPath: /var/log/nginx
+      volumes:
+      - name: pv-bitwarden-mssql-data
+        persistentVolumeClaim:
+          claimName: pv-bitwarden-mssql-data
+      - name: pv-bitwarden-mssql-log
+        persistentVolumeClaim:
+          claimName: pv-bitwarden-mssql-log
+      - name: pv-bitwarden-mssql-backups
+        persistentVolumeClaim:
+          claimName: pv-bitwarden-mssql-backups
+      - name: pv-bitwarden-web
+        persistentVolumeClaim:
+          claimName: pv-bitwarden-web
+      - name: pv-bitwarden-attachments
+        persistentVolumeClaim:
+          claimName: pv-bitwarden-attachments
+      - name: pv-bitwarden-core
+        persistentVolumeClaim:
+          claimName: pv-bitwarden-core
+      - name: pv-bitwarden-cacerts
+        persistentVolumeClaim:
+          claimName: pv-bitwarden-cacerts
+      - name: pv-bitwarden-identity
+        persistentVolumeClaim:
+          claimName: pv-bitwarden-identity
+      - name: pv-bitwarden-nginx
+        persistentVolumeClaim:
+          claimName: pv-bitwarden-nginx
+      - name: pv-bitwarden-letsencrypt
+        persistentVolumeClaim:
+          claimName: pv-bitwarden-letsencrypt
+      - name: pv-bitwarden-ssl
+        persistentVolumeClaim:
+          claimName: pv-bitwarden-ssl
+      - name: pv-bitwarden-sso-logs
+        persistentVolumeClaim:
+          claimName: pv-bitwarden-sso-logs
+      - name: pv-bitwarden-portal-logs
+        persistentVolumeClaim:
+          claimName: pv-bitwarden-portal-logs
+      - name: pv-bitwarden-events-logs
+        persistentVolumeClaim:
+          claimName: pv-bitwarden-events-logs
+      - name: pv-bitwarden-nginx-logs
+        persistentVolumeClaim:
+          claimName: pv-bitwarden-nginx-logs
+      - name: pv-bitwarden-identity-logs
+        persistentVolumeClaim:
+          claimName: pv-bitwarden-identity-logs
+      - name: pv-bitwarden-admin-logs
+        persistentVolumeClaim:
+          claimName: pv-bitwarden-admin-logs
+      - name: pv-bitwarden-api-logs
+        persistentVolumeClaim:
+          claimName: pv-bitwarden-api-logs
+      - name: pv-bitwarden-icons-logs
+        persistentVolumeClaim:
+          claimName: pv-bitwarden-icons-logs
+      - name: pv-bitwarden-notifications-logs
+        persistentVolumeClaim:
+          claimName: pv-bitwarden-notifications-logs
+
+---
+#Service for Ingress
+kind: Service
+apiVersion: v1
+metadata:
+  namespace: bitwarden
+  name: bitwarden-nginx
+spec:
+  ports:
+  - name: http-port
+    port: 8888
+    targetPort: 8888
+  selector:
+    app: bitwarden
+
+---
+#Service direct NodePort
+#kind: Service
+#apiVersion: v1
+#metadata:
+#  namespace: bitwarden
+#  name: bitwarden-nginx
+#spec:
+#  type: NodePort
+#  ports:
+#  - name: http
+#    port: 8888
+#    nodePort: 32000
+#  selector:
+#    app: bitwarden
+
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  namespace: bitwarden
+  name: bitwarden
+  annotations:
+#    nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+#    nginx.ingress.nginx.org/ssl-backends: "bitwarden"
+#    nginx.ingress.kubernetes.io/ingress.allow-http: "false"
+#    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+spec:
+  tls:
+  - hosts:
+    - bitwarden.example.com
+    secretName: bitwarden-secret-tls
+  rules:
+  - host: bitwarden.example.com
+    http:
+      paths:
+      - path: "/"
+        backend:
+          serviceName: bitwarden-nginx
+          servicePort: 8888
+  - host: bitwarden
+    http:
+      paths:
+      - path: "/"
+        backend:
+          serviceName: bitwarden-nginx
+          servicePort: 8888
+
+#bitwarden-nginx-default.conf-example
+#######################################################################
+# WARNING: This file is generated. Do not make changes to this file.  #
+# They will be overwritten on update. You can manage various settings #
+# used in this file from the ./bwdata/config.yml file for your        #
+# installation.                                                       #
+#######################################################################
+
+# server {
+#   listen 8888 default_server;
+#   listen [::]:8888 default_server;
+#   server_name bitwarden.example.com;
+#   include /etc/nginx/security-headers.conf;
+
+#   location / {
+#     proxy_pass http://127.0.0.1:5500/;
+#     include /etc/nginx/security-headers.conf;
+#     add_header Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://haveibeenpwned.com https://www.gravatar.com; child-src 'self' https://*.duosecurity.com; frame-src 'self' https://*.duosecurity.com; connect-src 'self' wss://bitwarden.example.com https://api.pwnedpasswords.com https://twofactorauth.org; object-src 'self' blob:;";
+#     add_header X-Frame-Options SAMEORIGIN;
+#     add_header X-Robots-Tag "noindex, nofollow";
+#   }
+
+#   location /alive {
+#     return 200 'alive';
+#     add_header Content-Type text/plain;
+#   }
+
+#   location = /app-id.json {
+#     proxy_pass http://127.0.0.1:5500/app-id.json;
+#     include /etc/nginx/security-headers.conf;
+#     proxy_hide_header Content-Type;
+#     add_header Content-Type $fido_content_type;
+#   }
+
+#   location = /duo-connector.html {
+#     proxy_pass http://127.0.0.1:5500/duo-connector.html;
+#   }
+
+#   location = /u2f-connector.html {
+#     proxy_pass http://127.0.0.1:5500/u2f-connector.html;
+#   }
+
+#   location = /sso-connector.html {
+#     proxy_pass http://127.0.0.1:5500/sso-connector.html;
+#   }
+
+#   location /attachments/ {
+#     proxy_pass http://127.0.0.1:5501/;
+#   }
+
+#   location /api/ {
+#     proxy_pass http://127.0.0.1:5502/;
+#   }
+
+#   location /icons/ {
+#     proxy_pass http://127.0.0.1:5505/;
+#   }
+
+#   location /notifications/ {
+#     proxy_pass http://127.0.0.1:5506/;
+#   }
+
+#   location /notifications/hub {
+#     proxy_pass http://127.0.0.1:5506/hub;
+#     proxy_set_header Upgrade $http_upgrade;
+#     proxy_set_header Connection $http_connection;
+#   }
+
+#   location /events/ {
+#     proxy_pass http://127.0.0.1:5507/;
+#   }
+
+#   location /sso {
+#     proxy_pass http://127.0.0.1:5508;
+#     include /etc/nginx/security-headers.conf;
+#     add_header X-Frame-Options SAMEORIGIN;
+#   }
+
+#   location /identity {
+#     proxy_pass http://127.0.0.1:5503;
+#     include /etc/nginx/security-headers.conf;
+#     add_header X-Frame-Options SAMEORIGIN;
+#   }
+
+#   location /admin {
+#     proxy_pass http://127.0.0.1:5504;
+#     include /etc/nginx/security-headers.conf;
+#     add_header X-Frame-Options SAMEORIGIN;
+#   }
+
+#   location /portal {
+#     proxy_pass http://127.0.0.1:5509;
+#     include /etc/nginx/security-headers.conf;
+#     add_header X-Frame-Options SAMEORIGIN;
+#   }
+# }
